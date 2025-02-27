@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>RPS Roguelike</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+
+        #game-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Style the action buttons */
+        #actions button {
+            font-size: 24px;
+            padding: 10px;
+            margin: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        #actions button:nth-child(1) {
+            background-image: url('rock.png');
+        }
+
+        #actions button:nth-child(2) {
+            background-image: url('paper.png');
+        }
+
+        #actions button:nth-child(3) {
+            background-image: url('scissors.png');
+        }
+
+        /* Style the planned actions */
+        #planned-actions div {
+            display: inline-block;
+            width: 60px;
+            height: 60px;
+            line-height: 60px;
+            margin: 5px;
+            background-color: #ddd;
+            border-radius: 5px;
+            font-size: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        #planned-actions div:hover {
+            transform: scale(1.1);
+        }
+
+        /* Style the resolution log */
+        #resolution-log p {
+            font-size: 18px;
+            margin: 5px 0;
+        }
+
+        .step {
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            border-radius: 50%;
+            background-color: #ccc;
+            margin: 0 5px;
+        }
+
+        .step.current {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .player-win {
+            color: green;
+        }
+
+        .enemy-win {
+            color: red;
+        }
+
+        .tie {
+            color: orange;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <h1>RPS Roguelike</h1>
+        <div id="run-map">
+            <span class="step" id="step1">1</span>
+            <span class="step" id="step2">2</span>
+            <span class="step" id="step3">Boss</span>
+        </div>
+        <div id="status">
+            <p>Player HP: <span id="player-hp">100</span> | Enemy HP: <span id="enemy-hp">100</span></p>
+            <p>Run Progress: <span id="run-progress">Battle 1</span> | Round: <span id="round-number">1</span></p>
+            <p>Inventory: <span id="inventory">None</span></p>
+        </div>
+        <div id="battle-screen">
+            <div id="planned-actions"></div>
+            <div id="actions">
+                <button onclick="addAction('Rock')" aria-label="Select Rock">✊</button>
+                <button onclick="addAction('Paper')" aria-label="Select Paper">✋</button>
+                <button onclick="addAction('Scissors')" aria-label="Select Scissors">✌️</button>
+                <button onclick="clearAllActions()">Clear All</button>
+                <button onclick="resolveRound()" id="resolve-btn" disabled>Resolve Round</button>
+            </div>
+            <div id="resolution-log"></div>
+        </div>
+        <div id="game-over" class="hidden">
+            <h2>Game Over</h2>
+            <p id="game-over-message"></p>
+            <button onclick="startNewRun()">Start New Run</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+
+</html>
