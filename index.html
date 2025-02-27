@@ -38,6 +38,9 @@
             <div id="inventory-container">
                 <p>🎒 Inventory: <span id="inventory">None</span></p>
             </div>
+            <div id="debuff-container" class="hidden">
+                <!-- Debuff info will be inserted here by JavaScript -->
+            </div>
         </div>
         <div id="battle-screen">
             <h2>Choose Your Moves</h2>
@@ -58,6 +61,13 @@
             </div>
             <div id="resolution-log"></div>
         </div>
+
+        <div id="item-selection" class="hidden">
+            <h2>Choose an Item</h2>
+            <p id="item-selection-message">Select one item to add to your inventory:</p>
+            <div id="item-options"></div>
+        </div>
+
         <div id="game-over" class="hidden">
             <h2>🏁 Game Over 🏁</h2>
             <p id="game-over-message"></p>

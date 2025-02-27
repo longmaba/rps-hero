@@ -458,6 +458,84 @@ h1 {
     background-color: rgba(231, 76, 60, 0.2);
 }
 
+/* Item selection screen styling */
+#item-selection {
+    padding: 20px;
+    background-color: #2c3e50;
+    border-radius: 10px;
+    animation: fadeIn 0.5s ease;
+}
+
+#item-options {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.item-option {
+    background-color: #34495e;
+    border: 2px solid #3498db;
+    border-radius: 10px;
+    padding: 15px;
+    width: 200px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.item-option:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    border-color: #f1c40f;
+}
+
+.item-option h3 {
+    color: #f1c40f;
+    margin-top: 0;
+    font-size: 18px;
+}
+
+.item-option p {
+    color: #ecf0f1;
+    font-size: 14px;
+}
+
+.item-applies-to {
+    margin-top: 10px;
+    padding: 5px;
+    border-radius: 5px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.item-applies-to[data-applies-to="Rock"] {
+    background-color: rgba(243, 156, 18, 0.3);
+    color: #f39c12;
+}
+
+.item-applies-to[data-applies-to="Paper"] {
+    background-color: rgba(52, 152, 219, 0.3);
+    color: #3498db;
+}
+
+.item-applies-to[data-applies-to="Scissors"] {
+    background-color: rgba(231, 76, 60, 0.3);
+    color: #e74c3c;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Enemy actions styling */
 #enemy-actions {
     display: flex;
@@ -572,4 +650,82 @@ h1 {
 .item-effect::before {
     content: "✨ ";
     filter: drop-shadow(0 0 2px rgba(241, 196, 15, 0.5));
+}
+
+/* Debuff styling */
+#debuff-container {
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #c0392b;
+    border-radius: 10px;
+    display: inline-block;
+    animation: pulse 2s infinite;
+    text-align: left;
+}
+
+#debuff-container.hidden {
+    display: none !important;
+    animation: none;
+}
+
+.debuff-icon {
+    font-size: 24px;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.debuff-name {
+    font-weight: bold;
+    font-size: 18px;
+    color: #fff;
+    margin-right: 10px;
+}
+
+.debuff-description {
+    font-style: italic;
+    color: #f2f2f2;
+}
+
+.debuff-notification {
+    background-color: rgba(192, 57, 43, 0.2);
+    border-left: 4px solid #c0392b;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    font-weight: bold;
+    animation: fadeIn 0.5s;
+}
+
+.debuff-effect {
+    color: #e74c3c;
+    background-color: rgba(231, 76, 60, 0.1);
+    border-left: 4px solid #e74c3c;
+    padding: 8px 10px;
+    margin: 6px 0;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+/* Disabled buttons due to debuff */
+.disabled-by-debuff {
+    background-color: #7f8c8d !important;
+    opacity: 0.7;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    position: relative;
+}
+
+.disabled-by-debuff::before {
+    content: "❌";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 36px;
+    color: #c0392b;
+}
+
+.disabled-by-debuff:hover {
+    transform: none !important;
+    box-shadow: none !important;
 } 
