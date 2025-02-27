@@ -20,11 +20,13 @@ let gameState = {
 function initBattle() {
   gameState.runProgress++;
   gameState.currentRound = 1; // Reset round for each battle
-  const isBoss = gameState.runProgress === gameState.maxBattles;
-  const enemyType = isBoss ? ENEMY_TYPES[2] : ENEMY_TYPES[Math.floor(Math.random() * 2)];
+
+  // Always use the Basic enemy type (index 0)
+  const enemyType = ENEMY_TYPES[0];
+
   gameState.enemy = {
-    hp: isBoss ? enemyType.maxHp : enemyType.maxHp,
-    maxHp: isBoss ? enemyType.maxHp : enemyType.maxHp,
+    hp: enemyType.maxHp,
+    maxHp: enemyType.maxHp,
     type: enemyType, // Store the enemy type object
     actions: enemyType.getActions(gameState), // Set actions for the first round
   };
@@ -50,19 +52,11 @@ function resolveRound() {
       let playerDmg = GAME_CONFIG.baseDamage;
       let enemyDmg = GAME_CONFIG.baseDamage;
 
-      // Create action comparison element for animation
-      const actionCompare = document.createElement("div");
-      actionCompare.classList.add("battle-compare");
-      actionCompare.innerHTML = `<span class="player-action">${emojiMap[playerAction]}</span> VS <span class="enemy-action">${emojiMap[enemyAction]}</span>`;
-      log.appendChild(actionCompare);
-
-      // Apply shake animation
-      actionCompare.classList.add("battle-shake");
-
-      // Remove the animation class after it completes to allow it to be reapplied
-      setTimeout(() => {
-        actionCompare.classList.remove("battle-shake");
-      }, 500);
+      // Reveal enemy action
+      const enemyActionElem = document.querySelector(`#enemy-actions div[data-index="${i}"]`);
+      enemyActionElem.textContent = emojiMap[enemyAction];
+      enemyActionElem.classList.remove("hidden-action");
+      enemyActionElem.classList.add("revealed-action");
 
       // Apply item effects
       gameState.player.inventory.forEach((item) => {
@@ -102,77 +96,95 @@ function resolveRound() {
         resultClass = "tie";
       }
 
-      // Add result after a small delay to show after the animation
-      setTimeout(() => {
-        // Create a new paragraph element for the result
-        const resultElem = document.createElement("p");
-        resultElem.className = resultClass;
-        resultElem.innerHTML = `Player: ${emojiMap[playerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}`;
-        log.appendChild(resultElem);
+      // Create a new paragraph element for the result - ONLY showing the result line
+      const resultElem = document.createElement("p");
+      resultElem.className = resultClass;
+      resultElem.innerHTML = `Player: ${emojiMap[playerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}`;
+      log.appendChild(resultElem);
 
-        // Scroll to the bottom of the log
-        log.scrollTop = log.scrollHeight;
+      // Scroll to the bottom of the log
+      log.scrollTop = log.scrollHeight;
 
-        // Check if battle should end early
-        if (gameState.player.hp <= 0 || gameState.enemy.hp <= 0) {
-          battleEnded = true;
+      // Check if battle should end early
+      if (gameState.player.hp <= 0 || gameState.enemy.hp <= 0) {
+        battleEnded = true;
 
+        // Store the player's actions from this round
+        gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
+
+        setTimeout(() => {
+          if (gameState.player.hp <= 0) {
+            // Player was defeated
+            const defeatMsg = document.createElement("p");
+            defeatMsg.className = "enemy-win victory-message";
+            defeatMsg.textContent = "You have been defeated!";
+            log.appendChild(defeatMsg);
+            log.scrollTop = log.scrollHeight;
+
+            // Add delay to show enemy moves before game over screen
+            setTimeout(async () => {
+              // Clear enemy moves with animation
+              await clearEnemyMovesWithAnimation();
+              endGame("You have been defeated!");
+            }, 1500);
+          } else {
+            // Enemy was defeated
+            if (gameState.runProgress === gameState.maxBattles) {
+              const victoryMsg = document.createElement("p");
+              victoryMsg.className = "player-win victory-message";
+              victoryMsg.textContent = "You completed all 20 levels!";
+              log.appendChild(victoryMsg);
+              log.scrollTop = log.scrollHeight;
+
+              // Add delay to show enemy moves before game over screen
+              setTimeout(async () => {
+                // Clear enemy moves with animation
+                await clearEnemyMovesWithAnimation();
+                endGame("Congratulations! You completed all 20 levels!");
+              }, 1500);
+            } else {
+              // Normal enemy defeated
+              const newItem = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+              gameState.player.inventory.push(newItem);
+
+              // Create a victory message element
+              const victoryElem = document.createElement("p");
+              victoryElem.className = "player-win victory-message";
+              victoryElem.innerHTML = `Victory! Gained item: ${newItem.name}`;
+              log.appendChild(victoryElem);
+
+              // Scroll to the bottom of the log
+              log.scrollTop = log.scrollHeight;
+
+              // Add delay to show enemy moves before next battle
+              setTimeout(async () => {
+                // Clear enemy moves with animation
+                await clearEnemyMovesWithAnimation();
+                initBattle();
+              }, 2000);
+            }
+          }
+        }, 800);
+      } else if (i === 4) {
+        // This was the last action and nobody died
+        setTimeout(async () => {
           // Store the player's actions from this round
           gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
 
-          setTimeout(() => {
-            if (gameState.player.hp <= 0) {
-              // Player was defeated
-              const defeatMsg = document.createElement("p");
-              defeatMsg.className = "enemy-win victory-message";
-              defeatMsg.textContent = "You have been defeated!";
-              log.appendChild(defeatMsg);
-              log.scrollTop = log.scrollHeight;
+          // Pause to show completed enemy moves for this round
+          await new Promise((resolve) => setTimeout(resolve, 1000));
 
-              setTimeout(() => endGame("You have been defeated!"), 1500);
-            } else {
-              // Enemy was defeated
-              if (gameState.runProgress === gameState.maxBattles) {
-                const victoryMsg = document.createElement("p");
-                victoryMsg.className = "player-win victory-message";
-                victoryMsg.textContent = "You defeated the Boss!";
-                log.appendChild(victoryMsg);
-                log.scrollTop = log.scrollHeight;
+          // Clear enemy moves with animation before starting next round
+          await clearEnemyMovesWithAnimation();
 
-                setTimeout(() => endGame("You defeated the Boss and won the run!"), 1500);
-              } else {
-                // Normal enemy defeated
-                const newItem = ITEMS[Math.floor(Math.random() * ITEMS.length)];
-                gameState.player.inventory.push(newItem);
-
-                // Create a victory message element
-                const victoryElem = document.createElement("p");
-                victoryElem.className = "player-win victory-message";
-                victoryElem.innerHTML = `Victory! Gained item: ${newItem.name}`;
-                log.appendChild(victoryElem);
-
-                // Scroll to the bottom of the log
-                log.scrollTop = log.scrollHeight;
-
-                setTimeout(() => initBattle(), 2000);
-              }
-            }
-          }, 800);
-        } else if (i === 4) {
-          // This was the last action and nobody died
-          setTimeout(() => {
-            // Store the player's actions from this round
-            gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
-
-            // Next round
-            gameState.currentRound++;
-            gameState.player.plannedActions = []; // Clear player actions
-            // Generate new enemy actions for the next round
-            gameState.enemy.actions = gameState.enemy.type.getActions(gameState);
-            updateUI();
-          }, 500);
-        }
-      }, 300);
+          // Next round
+          gameState.currentRound++;
+          gameState.player.plannedActions = []; // Clear player actions
+          // Generate new enemy actions for the next round
+          gameState.enemy.actions = gameState.enemy.type.getActions(gameState);
+          updateUI();
+        }, 500);
+      }
     }, delay);
     delay += GAME_CONFIG.battleDelay;
   }
@@ -296,6 +308,11 @@ function updateUI() {
   document.getElementById("run-progress").textContent = `Battle ${gameState.runProgress}`;
   document.getElementById("round-number").textContent = gameState.currentRound;
 
+  // Update progress bar for 20 levels
+  const progressPercent = (gameState.runProgress / gameState.maxBattles) * 100;
+  document.getElementById("progress-fill").style.width = `${progressPercent}%`;
+  document.getElementById("level-indicator").textContent = gameState.runProgress;
+
   // Update inventory with descriptions as tooltips
   const inventoryList = document.getElementById("inventory");
   inventoryList.innerHTML = "";
@@ -317,6 +334,19 @@ function updateUI() {
 
       inventoryList.appendChild(itemElem);
     });
+  }
+
+  // Set up enemy action placeholders
+  const enemyActionsDiv = document.getElementById("enemy-actions");
+  enemyActionsDiv.innerHTML = "";
+
+  // Create hidden placeholders for enemy actions
+  for (let i = 0; i < 5; i++) {
+    const actionElem = document.createElement("div");
+    actionElem.textContent = "?";
+    actionElem.classList.add("hidden-action");
+    actionElem.setAttribute("data-index", i);
+    enemyActionsDiv.appendChild(actionElem);
   }
 
   const plannedDiv = document.getElementById("planned-actions");
@@ -343,6 +373,37 @@ function updateUI() {
   // Update run map
   document.querySelectorAll(".step").forEach((step, index) => {
     step.classList.toggle("current", index + 1 === gameState.runProgress);
+  });
+}
+
+// Function to clear enemy moves with animation
+function clearEnemyMovesWithAnimation() {
+  const enemyMoves = document.querySelectorAll("#enemy-actions div");
+
+  // First, remove any existing animation classes
+  enemyMoves.forEach((move) => {
+    move.classList.remove("flip-out", "revealed-action");
+    // Force a reflow to ensure animations restart properly
+    void move.offsetWidth;
+  });
+
+  // Then add the flip-out animation class
+  enemyMoves.forEach((move) => {
+    move.classList.add("flip-out");
+  });
+
+  // Return a promise that resolves after the animation completes
+  // Add extra time to account for the staggered delays (0.4s for last item + 0.8s animation time + 0.3s buffer)
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Reset the enemy move elements to their hidden state after animation
+      enemyMoves.forEach((move) => {
+        move.classList.remove("flip-out", "revealed-action");
+        move.classList.add("hidden-action");
+        move.textContent = "?";
+      });
+      resolve();
+    }, 1500);
   });
 }
 

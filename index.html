@@ -11,9 +11,12 @@
     <div id="game-container">
         <h1>🎮 RPS Roguelike Adventure 🎮</h1>
         <div id="run-map">
-            <span class="step current" id="step1">1️⃣</span>
-            <span class="step" id="step2">2️⃣</span>
-            <span class="step" id="step3">👑</span>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text">Level: <span id="level-indicator">1</span>/20</div>
+            </div>
         </div>
         <div id="status">
             <div>
@@ -38,7 +41,14 @@
         </div>
         <div id="battle-screen">
             <h2>Choose Your Moves</h2>
-            <div id="planned-actions"></div>
+            <div id="enemy-planned-actions" class="action-row">
+                <div class="action-label">Enemy Moves:</div>
+                <div id="enemy-actions"></div>
+            </div>
+            <div id="planned-actions-container" class="action-row">
+                <div class="action-label">Your Moves:</div>
+                <div id="planned-actions"></div>
+            </div>
             <div id="actions">
                 <button onclick="addAction('Rock')" aria-label="Select Rock">✊</button>
                 <button onclick="addAction('Paper')" aria-label="Select Paper">✋</button>
