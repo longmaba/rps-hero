@@ -36,7 +36,7 @@ const enemyTypes = [
     type: "Mimic",
     getActions: (gameState) =>
       gameState.playerLastRoundActions
-        ? [...gameState.playerLastRoundActions] // Copy previous round’s actions
+        ? [...gameState.playerLastRoundActions] // Copy previous round's actions
         : Array(5)
             .fill()
             .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]), // Random if no previous actions
@@ -92,25 +92,33 @@ function resolveRound() {
         (playerAction === "Paper" && enemyAction === "Rock")
       ) {
         gameState.enemy.hp -= playerDmg;
-        result = `Player wins! Enemy takes ${playerDmg} damage.`;
+        result = `Player wins! ${getEnemyName()} takes ${playerDmg} damage.`;
+        // Add animation class to enemy HP bar
+        animateHPChange("enemy");
       } else {
         gameState.player.hp -= enemyDmg;
-        result = `Enemy wins! Player takes ${enemyDmg} damage.`;
+        result = `${getEnemyName()} wins! Player takes ${enemyDmg} damage.`;
+        // Add animation class to player HP bar
+        animateHPChange("player");
       }
+
+      // Update the HP bars immediately after damage
+      updateHP("player", Math.max(0, gameState.player.hp));
+      updateHP("enemy", Math.max(0, gameState.enemy.hp));
 
       let resultClass = "";
       if (result.includes("Player wins")) {
         resultClass = "player-win";
-      } else if (result.includes("Enemy wins")) {
+      } else if (result.includes("wins! Player takes")) {
         resultClass = "enemy-win";
       } else {
         resultClass = "tie";
       }
-      log.innerHTML += `<p class="${resultClass}">Player: ${emojiMap[playerAction]} vs Enemy: ${emojiMap[enemyAction]} - ${result}</p>`;
+      log.innerHTML += `<p class="${resultClass}">Player: ${emojiMap[playerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}</p>`;
 
       if (i === 4) {
         setTimeout(() => {
-          // Store the player’s actions from this round
+          // Store the player's actions from this round
           gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
 
           if (gameState.player.hp <= 0) {
@@ -137,6 +145,30 @@ function resolveRound() {
     }, delay);
     delay += 1000;
   }
+}
+
+// Function to get enemy name (type)
+function getEnemyName() {
+  return gameState.enemy.type.type || "Enemy";
+}
+
+// Function to animate HP changes
+function animateHPChange(entity) {
+  const bar = document.getElementById(`${entity}-hp-bar`);
+  bar.classList.add("hp-change");
+
+  // Remove animation class after animation completes
+  setTimeout(() => {
+    bar.classList.remove("hp-change");
+  }, 500);
+}
+
+function updateHP(entity, newValue) {
+  const maxHP = entity === "player" ? gameState.player.maxHp : gameState.enemy.maxHp;
+  const percentage = (newValue / maxHP) * 100;
+
+  document.getElementById(`${entity}-hp`).textContent = newValue;
+  document.getElementById(`${entity}-hp-bar`).style.width = `${percentage}%`;
 }
 
 // Resolve battle
@@ -199,10 +231,29 @@ function resolveBattle() {
 
 // End game
 function endGame(message) {
+  // Copy the resolution log to the game over screen
+  const resolutionLog = document.getElementById("resolution-log").innerHTML;
   document.getElementById("battle-screen").classList.add("hidden");
   const gameOver = document.getElementById("game-over");
   gameOver.classList.remove("hidden");
   document.getElementById("game-over-message").textContent = message;
+
+  // Add a new element to display the final battle log in the game over screen
+  const finalLogContainer = document.getElementById("final-battle-log") || document.createElement("div");
+  if (!document.getElementById("final-battle-log")) {
+    finalLogContainer.id = "final-battle-log";
+    finalLogContainer.style.maxHeight = "200px";
+    finalLogContainer.style.overflowY = "auto";
+    finalLogContainer.style.backgroundColor = "#2c3e50";
+    finalLogContainer.style.borderRadius = "10px";
+    finalLogContainer.style.padding = "15px";
+    finalLogContainer.style.margin = "20px 0";
+    finalLogContainer.style.boxShadow = "inset 0 0 10px rgba(0, 0, 0, 0.3)";
+    gameOver.insertBefore(finalLogContainer, gameOver.querySelector("button"));
+  }
+
+  // Add a heading for the final battle log
+  finalLogContainer.innerHTML = "<h3>Final Battle Results:</h3>" + resolutionLog;
 }
 
 // Start new run
@@ -213,10 +264,17 @@ function startNewRun() {
     runProgress: 0,
     maxBattles: 3,
     currentRound: 1, // Add this
-    playerLastRoundActions: null, // Add this to track the previous round’s actions
+    playerLastRoundActions: null, // Add this to track the previous round's actions
   };
   document.getElementById("battle-screen").classList.remove("hidden");
   document.getElementById("game-over").classList.add("hidden");
+  // Clear the resolution log when starting a new game
+  document.getElementById("resolution-log").innerHTML = "";
+  // Reset the final battle log container if it exists
+  const finalLogContainer = document.getElementById("final-battle-log");
+  if (finalLogContainer) {
+    finalLogContainer.innerHTML = "";
+  }
   initBattle();
 }
 
@@ -248,8 +306,13 @@ const emojiMap = {
 
 // Update UI with clickable actions
 function updateUI() {
-  document.getElementById("player-hp").textContent = Math.max(0, gameState.player.hp);
-  document.getElementById("enemy-hp").textContent = Math.max(0, gameState.enemy.hp);
+  // Update HP text and bars
+  updateHP("player", Math.max(0, gameState.player.hp));
+  updateHP("enemy", Math.max(0, gameState.enemy.hp));
+
+  // Update enemy name in the UI
+  document.getElementById("enemy-name").textContent = getEnemyName();
+
   document.getElementById("run-progress").textContent = `Battle ${gameState.runProgress}`;
   document.getElementById("round-number").textContent = gameState.currentRound;
   document.getElementById("inventory").textContent = gameState.player.inventory.map((i) => i.name).join(", ") || "None";
