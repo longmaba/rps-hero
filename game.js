@@ -1,9 +1,9 @@
 // Game state
 let gameState = {
   player: {
-    hp: 100,
-    maxHp: 100,
-    inventory: [{ name: "Obsidian Rock", type: "actionModifier", appliesTo: "Rock", effect: (dmg) => dmg + 10 }],
+    hp: GAME_CONFIG.playerStartingHp,
+    maxHp: GAME_CONFIG.playerStartingHp,
+    inventory: [ITEMS[GAME_CONFIG.startingItem]],
     plannedActions: [],
   },
   enemy: {
@@ -13,50 +13,18 @@ let gameState = {
     type: "Basic",
   },
   runProgress: 0,
-  maxBattles: 3, // Final boss at battle 3
+  maxBattles: GAME_CONFIG.maxBattles, // Final boss at battle 3
 };
-
-// Item pool
-const items = [
-  { name: "Obsidian Rock", type: "actionModifier", appliesTo: "Rock", effect: (dmg) => dmg + 10 },
-  { name: "Sharp Scissors", type: "actionModifier", appliesTo: "Scissors", effect: (dmg) => dmg + 5 },
-  { name: "Thick Paper", type: "actionModifier", appliesTo: "Paper", effect: (dmg) => dmg + 5 },
-];
-
-// Enemy types
-const enemyTypes = [
-  {
-    type: "Basic",
-    getActions: () =>
-      Array(5)
-        .fill()
-        .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]),
-  },
-  {
-    type: "Mimic",
-    getActions: (gameState) =>
-      gameState.playerLastRoundActions
-        ? [...gameState.playerLastRoundActions] // Copy previous round's actions
-        : Array(5)
-            .fill()
-            .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]), // Random if no previous actions
-  },
-  {
-    type: "Boss",
-    getActions: () => ["Rock", "Rock", "Paper", "Paper", "Scissors"],
-    maxHp: 150,
-  },
-];
 
 // Initialize game
 function initBattle() {
   gameState.runProgress++;
-  gameState.currentRound = 1; // Add this to reset round for each battle
+  gameState.currentRound = 1; // Reset round for each battle
   const isBoss = gameState.runProgress === gameState.maxBattles;
-  const enemyType = isBoss ? enemyTypes[2] : enemyTypes[Math.floor(Math.random() * 2)];
+  const enemyType = isBoss ? ENEMY_TYPES[2] : ENEMY_TYPES[Math.floor(Math.random() * 2)];
   gameState.enemy = {
-    hp: isBoss ? enemyType.maxHp : 100,
-    maxHp: isBoss ? enemyType.maxHp : 100,
+    hp: isBoss ? enemyType.maxHp : enemyType.maxHp,
+    maxHp: isBoss ? enemyType.maxHp : enemyType.maxHp,
     type: enemyType, // Store the enemy type object
     actions: enemyType.getActions(gameState), // Set actions for the first round
   };
@@ -70,12 +38,17 @@ function resolveRound() {
   document.getElementById("resolve-btn").disabled = true;
 
   let delay = 0;
+  let battleEnded = false; // Flag to track if battle has ended early
+
   for (let i = 0; i < 5; i++) {
     setTimeout(() => {
+      // Skip if battle already ended
+      if (battleEnded) return;
+
       const playerAction = gameState.player.plannedActions[i];
       const enemyAction = gameState.enemy.actions[i];
-      let playerDmg = 20;
-      let enemyDmg = 20;
+      let playerDmg = GAME_CONFIG.baseDamage;
+      let enemyDmg = GAME_CONFIG.baseDamage;
 
       // Create action comparison element for animation
       const actionCompare = document.createElement("div");
@@ -139,45 +112,69 @@ function resolveRound() {
 
         // Scroll to the bottom of the log
         log.scrollTop = log.scrollHeight;
-      }, 300);
 
-      if (i === 4) {
-        setTimeout(() => {
+        // Check if battle should end early
+        if (gameState.player.hp <= 0 || gameState.enemy.hp <= 0) {
+          battleEnded = true;
+
           // Store the player's actions from this round
           gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
 
-          if (gameState.player.hp <= 0) {
-            endGame("You have been defeated!");
-          } else if (gameState.enemy.hp <= 0) {
-            if (gameState.runProgress === gameState.maxBattles) {
-              endGame("You defeated the Boss and won the run!");
-            } else {
-              const newItem = items[Math.floor(Math.random() * items.length)];
-              gameState.player.inventory.push(newItem);
-
-              // Create a victory message element
-              const victoryElem = document.createElement("p");
-              victoryElem.className = "player-win victory-message";
-              victoryElem.innerHTML = `Victory! Gained item: ${newItem.name}`;
-              log.appendChild(victoryElem);
-
-              // Scroll to the bottom of the log
+          setTimeout(() => {
+            if (gameState.player.hp <= 0) {
+              // Player was defeated
+              const defeatMsg = document.createElement("p");
+              defeatMsg.className = "enemy-win victory-message";
+              defeatMsg.textContent = "You have been defeated!";
+              log.appendChild(defeatMsg);
               log.scrollTop = log.scrollHeight;
 
-              initBattle();
+              setTimeout(() => endGame("You have been defeated!"), 1500);
+            } else {
+              // Enemy was defeated
+              if (gameState.runProgress === gameState.maxBattles) {
+                const victoryMsg = document.createElement("p");
+                victoryMsg.className = "player-win victory-message";
+                victoryMsg.textContent = "You defeated the Boss!";
+                log.appendChild(victoryMsg);
+                log.scrollTop = log.scrollHeight;
+
+                setTimeout(() => endGame("You defeated the Boss and won the run!"), 1500);
+              } else {
+                // Normal enemy defeated
+                const newItem = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+                gameState.player.inventory.push(newItem);
+
+                // Create a victory message element
+                const victoryElem = document.createElement("p");
+                victoryElem.className = "player-win victory-message";
+                victoryElem.innerHTML = `Victory! Gained item: ${newItem.name}`;
+                log.appendChild(victoryElem);
+
+                // Scroll to the bottom of the log
+                log.scrollTop = log.scrollHeight;
+
+                setTimeout(() => initBattle(), 2000);
+              }
             }
-          } else {
+          }, 800);
+        } else if (i === 4) {
+          // This was the last action and nobody died
+          setTimeout(() => {
+            // Store the player's actions from this round
+            gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
+
             // Next round
             gameState.currentRound++;
             gameState.player.plannedActions = []; // Clear player actions
             // Generate new enemy actions for the next round
             gameState.enemy.actions = gameState.enemy.type.getActions(gameState);
             updateUI();
-          }
-        }, 500);
-      }
+          }, 500);
+        }
+      }, 300);
     }, delay);
-    delay += 1000;
+    delay += GAME_CONFIG.battleDelay;
   }
 }
 
@@ -228,12 +225,17 @@ function endGame(message) {
 // Start new run
 function startNewRun() {
   gameState = {
-    player: { hp: 100, maxHp: 100, inventory: [items[0]], plannedActions: [] },
+    player: {
+      hp: GAME_CONFIG.playerStartingHp,
+      maxHp: GAME_CONFIG.playerStartingHp,
+      inventory: [ITEMS[GAME_CONFIG.startingItem]],
+      plannedActions: [],
+    },
     enemy: { hp: 100, maxHp: 100, actions: [], type: "Basic" },
     runProgress: 0,
-    maxBattles: 3,
-    currentRound: 1, // Add this
-    playerLastRoundActions: null, // Add this to track the previous round's actions
+    maxBattles: GAME_CONFIG.maxBattles,
+    currentRound: 1,
+    playerLastRoundActions: null, // Track the previous round's actions
   };
   document.getElementById("battle-screen").classList.remove("hidden");
   document.getElementById("game-over").classList.add("hidden");
@@ -282,9 +284,40 @@ function updateUI() {
   // Update enemy name in the UI
   document.getElementById("enemy-name").textContent = getEnemyName();
 
+  // Update enemy description
+  const enemyDescription = document.getElementById("enemy-description");
+  if (gameState.enemy.type.description) {
+    enemyDescription.textContent = gameState.enemy.type.description;
+    enemyDescription.classList.remove("hidden");
+  } else {
+    enemyDescription.classList.add("hidden");
+  }
+
   document.getElementById("run-progress").textContent = `Battle ${gameState.runProgress}`;
   document.getElementById("round-number").textContent = gameState.currentRound;
-  document.getElementById("inventory").textContent = gameState.player.inventory.map((i) => i.name).join(", ") || "None";
+
+  // Update inventory with descriptions as tooltips
+  const inventoryList = document.getElementById("inventory");
+  inventoryList.innerHTML = "";
+
+  if (gameState.player.inventory.length === 0) {
+    inventoryList.textContent = "None";
+  } else {
+    gameState.player.inventory.forEach((item, index) => {
+      const itemElem = document.createElement("span");
+      itemElem.textContent = item.name;
+      itemElem.className = "inventory-item";
+      itemElem.setAttribute("title", item.description || "");
+      itemElem.setAttribute("data-applies-to", item.appliesTo);
+
+      // Add a comma if not the last item
+      if (index < gameState.player.inventory.length - 1) {
+        itemElem.textContent += ", ";
+      }
+
+      inventoryList.appendChild(itemElem);
+    });
+  }
 
   const plannedDiv = document.getElementById("planned-actions");
   plannedDiv.innerHTML = "";
