@@ -58,9 +58,11 @@ function resolveRound() {
       enemyActionElem.classList.remove("hidden-action");
       enemyActionElem.classList.add("revealed-action");
 
-      // Apply item effects
+      // Apply base item effects
       gameState.player.inventory.forEach((item) => {
-        if (item.appliesTo === playerAction) playerDmg = item.effect(playerDmg);
+        if (item.type === "actionModifier" && item.appliesTo === playerAction) {
+          playerDmg = item.effect(playerDmg);
+        }
       });
 
       // Determine winner
@@ -74,12 +76,10 @@ function resolveRound() {
       ) {
         gameState.enemy.hp -= playerDmg;
         result = `Player wins! ${getEnemyName()} takes ${playerDmg} damage.`;
-        // Add animation class to enemy HP bar
         animateHPChange("enemy");
       } else {
         gameState.player.hp -= enemyDmg;
         result = `${getEnemyName()} wins! Player takes ${enemyDmg} damage.`;
-        // Add animation class to player HP bar
         animateHPChange("player");
       }
 
@@ -240,14 +240,14 @@ function startNewRun() {
     player: {
       hp: GAME_CONFIG.playerStartingHp,
       maxHp: GAME_CONFIG.playerStartingHp,
-      inventory: [ITEMS[GAME_CONFIG.startingItem]],
+      inventory: [ITEMS[Math.floor(Math.random() * ITEMS.length)]],
       plannedActions: [],
     },
     enemy: { hp: 100, maxHp: 100, actions: [], type: "Basic" },
     runProgress: 0,
     maxBattles: GAME_CONFIG.maxBattles,
     currentRound: 1,
-    playerLastRoundActions: null, // Track the previous round's actions
+    playerLastRoundActions: null,
   };
   document.getElementById("battle-screen").classList.remove("hidden");
   document.getElementById("game-over").classList.add("hidden");
@@ -405,6 +405,16 @@ function clearEnemyMovesWithAnimation() {
       resolve();
     }, 1500);
   });
+}
+
+// Add this new function to handle item effect logging
+function logItemEffect(message) {
+  const log = document.getElementById("resolution-log");
+  const effectElem = document.createElement("p");
+  effectElem.className = "item-effect";
+  effectElem.textContent = `✨ ${message}`;
+  log.appendChild(effectElem);
+  log.scrollTop = log.scrollHeight;
 }
 
 // Start game

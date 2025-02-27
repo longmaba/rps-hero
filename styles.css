@@ -557,4 +557,19 @@ h1 {
 #enemy-actions div:not(.hidden-action):hover {
     transform: scale(1.05);
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.item-effect {
+    color: #f1c40f;
+    background-color: rgba(241, 196, 15, 0.1);
+    border-left: 4px solid #f1c40f;
+    padding: 8px 10px;
+    margin: 6px 0;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.item-effect::before {
+    content: "✨ ";
+    filter: drop-shadow(0 0 2px rgba(241, 196, 15, 0.5));
 } 
