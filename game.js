@@ -700,6 +700,20 @@ function selectItem(item) {
     document.getElementById("battle-screen").classList.remove("hidden");
     initBattle();
   } else {
+    // Heal the player after battle victory
+    const healAmount = 40;
+    const oldHp = gameState.player.hp;
+    gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + healAmount);
+    const actualHealAmount = gameState.player.hp - oldHp;
+
+    // Show healing message in log
+    const log = document.getElementById("resolution-log");
+    const healMsg = document.createElement("p");
+    healMsg.className = "heal-effect";
+    healMsg.textContent = `💚 Battle Rest: Recovered ${actualHealAmount} HP!`;
+    log.appendChild(healMsg);
+    log.scrollTop = log.scrollHeight;
+
     // Continue to next battle after victory
     document.getElementById("battle-screen").classList.remove("hidden");
     initBattle();

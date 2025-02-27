@@ -65,7 +65,7 @@ const ITEMS = [
     type: "conditionalModifier",
     appliesTo: "Scissors",
     effect: (dmg) => (Math.random() < 0.4 ? dmg * 4 : dmg),
-    description: "Scissors have 20% chance to do 400% damage when winning",
+    description: "Scissors have 40% chance to do 400% damage when winning",
     condition: "win",
     triggerMessage: (dmg) => `Lethal precision! Critical hit for ${dmg} damage!`,
   },

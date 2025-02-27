@@ -706,6 +706,24 @@ h1 {
     font-size: 14px;
 }
 
+/* Healing effect styling */
+.heal-effect {
+    color: #2ecc71;
+    background-color: rgba(46, 204, 113, 0.1);
+    border-left: 4px solid #2ecc71;
+    padding: 8px 10px;
+    margin: 6px 0;
+    border-radius: 5px;
+    font-size: 14px;
+    animation: healPulse 1.5s ease-in-out;
+}
+
+@keyframes healPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); background-color: rgba(46, 204, 113, 0.3); }
+    100% { transform: scale(1); }
+}
+
 /* Disabled buttons due to debuff */
 .disabled-by-debuff {
     background-color: #7f8c8d !important;
