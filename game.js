@@ -66,7 +66,7 @@ function initBattle() {
 
 function resolveRound() {
   const log = document.getElementById("resolution-log");
-  log.innerHTML = "";
+  log.innerHTML = ""; // Clear the log at the start of a new round
   document.getElementById("resolve-btn").disabled = true;
 
   let delay = 0;
@@ -76,6 +76,20 @@ function resolveRound() {
       const enemyAction = gameState.enemy.actions[i];
       let playerDmg = 20;
       let enemyDmg = 20;
+
+      // Create action comparison element for animation
+      const actionCompare = document.createElement("div");
+      actionCompare.classList.add("battle-compare");
+      actionCompare.innerHTML = `<span class="player-action">${emojiMap[playerAction]}</span> VS <span class="enemy-action">${emojiMap[enemyAction]}</span>`;
+      log.appendChild(actionCompare);
+
+      // Apply shake animation
+      actionCompare.classList.add("battle-shake");
+
+      // Remove the animation class after it completes to allow it to be reapplied
+      setTimeout(() => {
+        actionCompare.classList.remove("battle-shake");
+      }, 500);
 
       // Apply item effects
       gameState.player.inventory.forEach((item) => {
@@ -114,7 +128,18 @@ function resolveRound() {
       } else {
         resultClass = "tie";
       }
-      log.innerHTML += `<p class="${resultClass}">Player: ${emojiMap[playerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}</p>`;
+
+      // Add result after a small delay to show after the animation
+      setTimeout(() => {
+        // Create a new paragraph element for the result
+        const resultElem = document.createElement("p");
+        resultElem.className = resultClass;
+        resultElem.innerHTML = `Player: ${emojiMap[playerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}`;
+        log.appendChild(resultElem);
+
+        // Scroll to the bottom of the log
+        log.scrollTop = log.scrollHeight;
+      }, 300);
 
       if (i === 4) {
         setTimeout(() => {
@@ -129,7 +154,16 @@ function resolveRound() {
             } else {
               const newItem = items[Math.floor(Math.random() * items.length)];
               gameState.player.inventory.push(newItem);
-              log.innerHTML += `<p>Victory! Gained item: ${newItem.name}</p>`;
+
+              // Create a victory message element
+              const victoryElem = document.createElement("p");
+              victoryElem.className = "player-win victory-message";
+              victoryElem.innerHTML = `Victory! Gained item: ${newItem.name}`;
+              log.appendChild(victoryElem);
+
+              // Scroll to the bottom of the log
+              log.scrollTop = log.scrollHeight;
+
               initBattle();
             }
           } else {
@@ -171,64 +205,6 @@ function updateHP(entity, newValue) {
   document.getElementById(`${entity}-hp-bar`).style.width = `${percentage}%`;
 }
 
-// Resolve battle
-function resolveBattle() {
-  const log = document.getElementById("resolution-log");
-  log.innerHTML = "";
-  document.getElementById("resolve-btn").disabled = true;
-
-  for (let i = 0; i < 5; i++) {
-    const playerAction = gameState.player.plannedActions[i];
-    const enemyAction = gameState.enemy.actions[i];
-    let playerDmg = 20;
-    let enemyDmg = 20;
-
-    // Apply item effects
-    gameState.player.inventory.forEach((item) => {
-      if (item.appliesTo === playerAction) {
-        playerDmg = item.effect(playerDmg);
-      }
-    });
-
-    // Determine winner
-    let result = "";
-    if (playerAction === enemyAction) {
-      result = "Tie!";
-    } else if (
-      (playerAction === "Rock" && enemyAction === "Scissors") ||
-      (playerAction === "Scissors" && enemyAction === "Paper") ||
-      (playerAction === "Paper" && enemyAction === "Rock")
-    ) {
-      gameState.enemy.hp -= playerDmg;
-      result = `Player wins! Enemy takes ${playerDmg} damage.`;
-    } else {
-      gameState.player.hp -= enemyDmg;
-      result = `Enemy wins! Player takes ${enemyDmg} damage.`;
-    }
-
-    log.innerHTML += `<p>Player: ${playerAction} vs Enemy: ${enemyAction} - ${result}</p>`;
-  }
-
-  // Check battle outcome
-  setTimeout(() => {
-    if (gameState.player.hp <= 0) {
-      endGame("You have been defeated!");
-    } else if (gameState.enemy.hp <= 0) {
-      if (gameState.runProgress === gameState.maxBattles) {
-        endGame("You defeated the Boss and won the run!");
-      } else {
-        // Reward item
-        const newItem = items[Math.floor(Math.random() * items.length)];
-        gameState.player.inventory.push(newItem);
-        log.innerHTML += `<p>Victory! Gained item: ${newItem.name}</p>`;
-        initBattle();
-      }
-    } else {
-      updateUI();
-    }
-  }, 1000); // Delay for readability
-}
-
 // End game
 function endGame(message) {
   // Copy the resolution log to the game over screen
@@ -242,13 +218,6 @@ function endGame(message) {
   const finalLogContainer = document.getElementById("final-battle-log") || document.createElement("div");
   if (!document.getElementById("final-battle-log")) {
     finalLogContainer.id = "final-battle-log";
-    finalLogContainer.style.maxHeight = "200px";
-    finalLogContainer.style.overflowY = "auto";
-    finalLogContainer.style.backgroundColor = "#2c3e50";
-    finalLogContainer.style.borderRadius = "10px";
-    finalLogContainer.style.padding = "15px";
-    finalLogContainer.style.margin = "20px 0";
-    finalLogContainer.style.boxShadow = "inset 0 0 10px rgba(0, 0, 0, 0.3)";
     gameOver.insertBefore(finalLogContainer, gameOver.querySelector("button"));
   }
 
