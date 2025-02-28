@@ -22,12 +22,23 @@ let gameState = {
     baseDamage: GAME_CONFIG.baseDamage,
     damageIncreasePerBattle: GAME_CONFIG.enemyScaling.damageIncreasePerBattle,
   },
+  usedReviveItem: false, // Track if a revival item has been used in the current battle
 };
 
 // Initialize game
 function initBattle() {
   gameState.runProgress++;
   gameState.currentRound = 1; // Reset round for each battle
+
+  // Reset the used revival item flag for the new battle
+  gameState.usedReviveItem = false;
+
+  // Reset the consumed state for defensive items
+  gameState.player.inventory.forEach((item) => {
+    if (item.type === "defensive") {
+      item.consumed = false;
+    }
+  });
 
   // Select enemy type: Boss on final battle, otherwise Basic
   let enemyTypeIndex = 0; // Default to Basic (index 0)
@@ -106,6 +117,9 @@ function resolveRound() {
     gameState.activeDebuff.roundEffect(gameState);
   }
 
+  // Apply action replacer effects (like Mirror Amulet)
+  applyActionReplacerEffects();
+
   let delay = 0;
   let battleEnded = false; // Flag to track if battle has ended early
 
@@ -145,13 +159,13 @@ function resolveRound() {
       ) {
         // Player wins - apply conditional win modifiers
         gameState.player.inventory.forEach((item) => {
-          if (item.type === "conditionalModifier" && item.appliesTo === playerAction && item.condition === "win") {
+          if (item.type === "conditionalModifier" && (item.appliesTo === playerAction || item.appliesTo === "All") && item.condition === "win") {
             const oldDamage = playerDmg;
             playerDmg = item.effect(playerDmg);
 
             // Log item effect if damage was modified, but skip lifesteal items for now
             if (playerDmg !== oldDamage && item.triggerMessage && !item.isLifesteal) {
-              logItemEffect(item.triggerMessage(playerDmg));
+              logItemEffect(item.triggerMessage(playerDmg), item.type);
             }
           }
         });
@@ -161,7 +175,7 @@ function resolveRound() {
 
         // Now apply lifesteal effects after all damage calculations are complete
         gameState.player.inventory.forEach((item) => {
-          if (item.isLifesteal && item.appliesTo === playerAction && item.condition === "win") {
+          if (item.isLifesteal && (item.appliesTo === playerAction || item.appliesTo === "All") && item.condition === "win") {
             // Calculate lifesteal based on the final damage value
             const lifestealAmount = Math.floor(playerDmg * item.lifestealPercent);
 
@@ -175,7 +189,7 @@ function resolveRound() {
 
             // Log the lifesteal effect
             if (item.triggerMessage) {
-              logItemEffect(item.triggerMessage(playerDmg));
+              logItemEffect(item.triggerMessage(playerDmg), item.type);
             }
           }
         });
@@ -185,13 +199,13 @@ function resolveRound() {
       } else {
         // Enemy wins - apply conditional lose modifiers
         gameState.player.inventory.forEach((item) => {
-          if (item.type === "conditionalModifier" && item.appliesTo === playerAction && item.condition === "lose") {
+          if (item.type === "conditionalModifier" && (item.appliesTo === playerAction || item.appliesTo === "All") && item.condition === "lose") {
             const oldDamage = enemyDmg;
             enemyDmg = item.effect(enemyDmg);
 
             // Log item effect if damage was modified
             if (enemyDmg !== oldDamage && item.triggerMessage) {
-              logItemEffect(item.triggerMessage(enemyDmg));
+              logItemEffect(item.triggerMessage(enemyDmg), item.type);
             }
           }
         });
@@ -225,74 +239,101 @@ function resolveRound() {
 
       // Check if battle should end early
       if (gameState.player.hp <= 0 || gameState.enemy.hp <= 0) {
-        battleEnded = true;
+        if (gameState.player.hp <= 0) {
+          // Check for revival items like Phoenix Feather
+          const reviveItem = gameState.player.inventory.find((item) => item.type === "defensive" && !item.consumed);
 
-        // Store the player's actions from this round
-        gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
+          if (reviveItem && !gameState.usedReviveItem) {
+            // Try to use the revival item
+            const revived = reviveItem.effect(gameState);
 
-        setTimeout(() => {
-          if (gameState.player.hp <= 0) {
-            // Player was defeated
-            const defeatMsg = document.createElement("p");
-            defeatMsg.className = "enemy-win victory-message";
-            defeatMsg.textContent = "You have been defeated!";
-            log.appendChild(defeatMsg);
+            if (revived) {
+              // Mark the item as consumed for this battle
+              reviveItem.consumed = true;
+              gameState.usedReviveItem = true;
+
+              // Log the revival
+              const reviveMsg = document.createElement("p");
+              reviveMsg.className = "item-effect revival";
+              reviveMsg.textContent = `✨ ${reviveItem.triggerMessage()}`;
+              log.appendChild(reviveMsg);
+              log.scrollTop = log.scrollHeight;
+
+              // Update HP display
+              updateHP("player", gameState.player.hp);
+
+              // Continue with the battle without ending it
+              return;
+            }
+          }
+
+          // Player was defeated (and not revived)
+          const defeatMsg = document.createElement("p");
+          defeatMsg.className = "enemy-win victory-message";
+          defeatMsg.textContent = "You have been defeated!";
+          log.appendChild(defeatMsg);
+          log.scrollTop = log.scrollHeight;
+
+          battleEnded = true;
+
+          // Add delay to show enemy moves before game over screen
+          setTimeout(async () => {
+            // Clear enemy moves with animation
+            await clearEnemyMovesWithAnimation();
+            endGame("You have been defeated!");
+          }, 1500);
+        } else {
+          // Enemy was defeated
+          battleEnded = true;
+
+          // Store the player's actions from this round
+          gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
+
+          if (gameState.runProgress === gameState.maxBattles) {
+            const victoryMsg = document.createElement("p");
+            victoryMsg.className = "player-win victory-message";
+            victoryMsg.textContent = "You completed all 20 levels!";
+            log.appendChild(victoryMsg);
             log.scrollTop = log.scrollHeight;
 
             // Add delay to show enemy moves before game over screen
             setTimeout(async () => {
               // Clear enemy moves with animation
               await clearEnemyMovesWithAnimation();
-              endGame("You have been defeated!");
+              endGame("Congratulations! You completed all 20 levels!");
             }, 1500);
           } else {
-            // Enemy was defeated
-            if (gameState.runProgress === gameState.maxBattles) {
-              const victoryMsg = document.createElement("p");
-              victoryMsg.className = "player-win victory-message";
-              victoryMsg.textContent = "You completed all 20 levels!";
-              log.appendChild(victoryMsg);
-              log.scrollTop = log.scrollHeight;
+            // Normal enemy defeated - show victory message
+            const victoryElem = document.createElement("p");
+            victoryElem.className = "player-win victory-message";
 
-              // Add delay to show enemy moves before game over screen
-              setTimeout(async () => {
-                // Clear enemy moves with animation
-                await clearEnemyMovesWithAnimation();
-                endGame("Congratulations! You completed all 20 levels!");
-              }, 1500);
+            // Check if this is a special event battle (every 5th battle)
+            if (gameState.runProgress % 5 === 0) {
+              victoryElem.innerHTML = "Victory! Special reward available!";
             } else {
-              // Normal enemy defeated - show victory message
-              const victoryElem = document.createElement("p");
-              victoryElem.className = "player-win victory-message";
+              victoryElem.innerHTML = "Victory! Choose your reward item!";
+            }
+
+            log.appendChild(victoryElem);
+
+            // Scroll to the bottom of the log
+            log.scrollTop = log.scrollHeight;
+
+            // Add delay to show enemy moves before item selection
+            setTimeout(async () => {
+              // Clear enemy moves with animation
+              await clearEnemyMovesWithAnimation();
 
               // Check if this is a special event battle (every 5th battle)
               if (gameState.runProgress % 5 === 0) {
-                victoryElem.innerHTML = "Victory! Special reward available!";
+                showSpecialEvent();
               } else {
-                victoryElem.innerHTML = "Victory! Choose your reward item!";
+                // Regular item selection for normal battles
+                showItemSelection("victory");
               }
-
-              log.appendChild(victoryElem);
-
-              // Scroll to the bottom of the log
-              log.scrollTop = log.scrollHeight;
-
-              // Add delay to show enemy moves before item selection
-              setTimeout(async () => {
-                // Clear enemy moves with animation
-                await clearEnemyMovesWithAnimation();
-
-                // Check if this is a special event battle (every 5th battle)
-                if (gameState.runProgress % 5 === 0) {
-                  showSpecialEvent();
-                } else {
-                  // Regular item selection for normal battles
-                  showItemSelection("victory");
-                }
-              }, 2000);
-            }
+            }, 2000);
           }
-        }, 800);
+        }
       } else if (i === 4) {
         // This was the last action and nobody died
         setTimeout(async () => {
@@ -384,6 +425,7 @@ function startNewRun() {
       baseDamage: GAME_CONFIG.baseDamage,
       damageIncreasePerBattle: GAME_CONFIG.enemyScaling.damageIncreasePerBattle,
     },
+    usedReviveItem: false, // Track if a revival item has been used in the current battle
   };
 
   // Clear the resolution log when starting a new game
@@ -594,6 +636,20 @@ function selectItem(item) {
   // Add the selected item to player's inventory
   gameState.player.inventory.push(item);
 
+  // Apply one-time effects for utility items
+  if (item.type === "utility" && item.isOneTimeEffect) {
+    const result = item.effect();
+    if (result && item.triggerMessage) {
+      // Log the effect if it has a message
+      const log = document.getElementById("resolution-log");
+      const effectElem = document.createElement("p");
+      effectElem.className = "item-effect";
+      effectElem.textContent = `✨ ${item.triggerMessage()}`;
+      log.appendChild(effectElem);
+      log.scrollTop = log.scrollHeight;
+    }
+  }
+
   // Hide item selection screen
   document.getElementById("item-selection").classList.add("hidden");
 
@@ -603,6 +659,9 @@ function selectItem(item) {
     document.getElementById("battle-screen").classList.remove("hidden");
     initBattle();
   } else {
+    // Apply post-battle effects (like healing)
+    applyPostBattleEffects();
+
     // Heal the player after battle victory
     const healAmount = 40;
     const oldHp = gameState.player.hp;
@@ -621,6 +680,44 @@ function selectItem(item) {
     document.getElementById("battle-screen").classList.remove("hidden");
     initBattle();
   }
+}
+
+// Function to apply post-battle effects from items
+function applyPostBattleEffects() {
+  const log = document.getElementById("resolution-log");
+
+  // Find and apply all post-battle effect items
+  gameState.player.inventory.forEach((item) => {
+    if (item.type === "postBattleEffect") {
+      const healAmount = item.effect(gameState);
+
+      // Log the effect if it has a message
+      if (item.triggerMessage) {
+        const effectElem = document.createElement("p");
+        effectElem.className = "heal-effect";
+        effectElem.textContent = `✨ ${item.triggerMessage(healAmount)}`;
+        log.appendChild(effectElem);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      // Update the HP display
+      updateHP("player", gameState.player.hp);
+    }
+
+    // Apply scaling items (like Training Manual)
+    if (item.type === "scaling" && item.appliesTo === "baseDamage") {
+      gameState.enemyScaling.baseDamage = item.effect(gameState.enemyScaling.baseDamage);
+
+      // Log the effect if it has a message
+      if (item.triggerMessage) {
+        const effectElem = document.createElement("p");
+        effectElem.className = "item-effect";
+        effectElem.textContent = `✨ ${item.triggerMessage()}`;
+        log.appendChild(effectElem);
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+  });
 }
 
 // Helper function to update inventory display
@@ -760,10 +857,24 @@ function clearEnemyMovesWithAnimation() {
 }
 
 // Add this new function to handle item effect logging
-function logItemEffect(message) {
+function logItemEffect(message, itemType = null) {
   const log = document.getElementById("resolution-log");
   const effectElem = document.createElement("p");
   effectElem.className = "item-effect";
+
+  // Add specific class based on the message content or item type
+  if (itemType) {
+    effectElem.classList.add(`${itemType}-effect`);
+  } else if (message.includes("Shield")) {
+    effectElem.classList.add("shield-effect");
+  } else if (message.includes("Thorns")) {
+    effectElem.classList.add("thornmail-effect");
+  } else if (message.includes("Training")) {
+    effectElem.classList.add("training-effect");
+  } else if (message.includes("Mirrored")) {
+    effectElem.classList.add("mirror-effect");
+  }
+
   effectElem.textContent = `✨ ${message}`;
   log.appendChild(effectElem);
   log.scrollTop = log.scrollHeight;
@@ -823,18 +934,21 @@ function showItemSelection(context) {
 
     const nameElement = document.createElement("h3");
     nameElement.textContent = item.name;
+    itemElement.appendChild(nameElement);
 
     const descElement = document.createElement("p");
     descElement.textContent = item.description;
-
-    const appliesToElement = document.createElement("div");
-    appliesToElement.className = "item-applies-to";
-    appliesToElement.textContent = `Affects: ${item.appliesTo}`;
-    appliesToElement.setAttribute("data-applies-to", item.appliesTo);
-
-    itemElement.appendChild(nameElement);
     itemElement.appendChild(descElement);
-    itemElement.appendChild(appliesToElement);
+
+    // Only add the "Affects:" element for items that have an appliesTo property
+    // and are not utility, defensive, or scaling types that affect all moves
+    if (item.appliesTo && !["utility", "defensive", "scaling"].includes(item.type)) {
+      const appliesToElement = document.createElement("div");
+      appliesToElement.className = "item-applies-to";
+      appliesToElement.textContent = `Affects: ${item.appliesTo}`;
+      appliesToElement.setAttribute("data-applies-to", item.appliesTo);
+      itemElement.appendChild(appliesToElement);
+    }
 
     itemOptionsContainer.appendChild(itemElement);
   });
@@ -978,6 +1092,51 @@ function selectSpecialReward(choice) {
 
   // Continue to next battle
   initBattle();
+}
+
+// Function to apply action replacer effects (like Mirror Amulet)
+function applyActionReplacerEffects() {
+  const actionReplacers = gameState.player.inventory.filter((item) => item.type === "actionReplacer" && item.appliesTo === "All");
+
+  if (actionReplacers.length > 0 && gameState.player.plannedActions.length > 0) {
+    actionReplacers.forEach((item) => {
+      // Create a copy of player actions before modification for comparison
+      const originalActions = [...gameState.player.plannedActions];
+
+      // Apply the action replacer effect
+      const newActions = item.effect([...gameState.player.plannedActions], [...gameState.enemy.actions]);
+
+      // Update the player's actions if they were changed
+      if (newActions && JSON.stringify(newActions) !== JSON.stringify(originalActions)) {
+        gameState.player.plannedActions = newActions;
+
+        // Log the effect
+        if (item.triggerMessage) {
+          const log = document.getElementById("resolution-log");
+          const effectElem = document.createElement("p");
+          effectElem.className = "item-effect mirror-effect";
+          effectElem.textContent = `✨ ${item.triggerMessage()}`;
+          log.appendChild(effectElem);
+          log.scrollTop = log.scrollHeight;
+
+          // Add visual cue to the first move that was mirrored
+          setTimeout(() => {
+            const firstMoveElement = document.querySelector("#planned-actions div:first-child");
+            if (firstMoveElement) {
+              firstMoveElement.classList.add("mirrored-move");
+              // Remove the class after animation completes
+              setTimeout(() => {
+                firstMoveElement.classList.remove("mirrored-move");
+              }, 1500);
+            }
+          }, 300);
+        }
+
+        // Update the UI to show the new actions
+        updatePlannedActionsDisplay();
+      }
+    });
+  }
 }
 
 // Start game

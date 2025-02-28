@@ -51,6 +51,51 @@ const ITEMS = [
     effect: (dmg) => dmg + 10,
     description: "Increases Paper damage by 10",
   },
+  {
+    name: "Iron Shield",
+    type: "conditionalModifier",
+    appliesTo: "All",
+    effect: (dmg) => Math.floor(dmg * 0.8),
+    description: "Reduces all incoming damage by 20% when losing",
+    condition: "lose",
+    triggerMessage: (dmg) => `Shield absorbed ${Math.ceil(dmg * 0.3)} damage!`,
+  },
+  {
+    name: "Healing Herb",
+    type: "postBattleEffect",
+    effect: (gameState) => {
+      const healAmount = Math.floor(gameState.player.maxHp * 0.05);
+      gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + healAmount);
+      return healAmount;
+    },
+    description: "Heals 5% of max HP after each battle",
+    triggerMessage: (amount) => `Healing Herb restored ${amount} HP!`,
+  },
+  {
+    name: "Thornmail",
+    type: "conditionalModifier",
+    appliesTo: "All",
+    effect: (dmg) => {
+      const reflectDamage = Math.floor(dmg * 0.2);
+      gameState.enemy.hp -= reflectDamage;
+      return dmg;
+    },
+    description: "Reflects 20% of received damage back to enemy",
+    condition: "lose",
+    triggerMessage: (dmg) => `Thorns deal ${Math.floor(dmg * 0.2)} damage!`,
+  },
+  {
+    name: "Big Heart",
+    type: "utility",
+    description: "Increases max HP by 100",
+    effect: (gameState) => {
+      gameState.player.maxHp += 100;
+      gameState.player.hp = gameState.player.maxHp;
+    },
+    triggerMessage: () => "Big Heart increases max HP by 100!",
+    description: "Increases max HP by 100",
+    isOneTimeEffect: true,
+  },
 ];
 
 // Relic configuration (rare, powerful items available at the start)
@@ -104,6 +149,40 @@ const RELICS = [
     description: "Reduces damage by 50% when losing with Rock",
     condition: "lose",
     triggerMessage: (dmg) => `Rock absorption! Reduced damage to ${dmg}.`,
+  },
+  {
+    name: "Phoenix Feather",
+    type: "defensive",
+    appliesTo: "All",
+    effect: (gameState) => {
+      if (gameState.player.hp <= 0) {
+        gameState.player.hp = Math.floor(gameState.player.maxHp * 0.5);
+        return true; // Indicates revival happened
+      }
+      return false;
+    },
+    description: "Revive with 50% HP once per battle when defeated",
+    triggerMessage: () => "Phoenix Feather brings you back from defeat!",
+    consumed: false, // Track if it's been used already
+  },
+  {
+    name: "Lucky Charm",
+    type: "utility",
+    appliesTo: "All",
+    effect: () => {
+      GAME_CONFIG.debuffChance *= 0.5;
+      return true;
+    },
+    description: "Reduces debuff chance by 50%",
+    isOneTimeEffect: true,
+  },
+  {
+    name: "Training Manual",
+    type: "scaling",
+    effect: (baseValue) => baseValue + 10,
+    description: "Permanently increases base damage by 10 after each battle",
+    appliesTo: "baseDamage",
+    triggerMessage: () => "Training complete! Base damage increased by 10!",
   },
 ];
 

@@ -825,7 +825,8 @@ h1 {
 
 /* Healing effect styling */
 .heal-effect {
-    color: #2ecc71;
+    color: #00cc66;
+    font-weight: bold;
     background-color: rgba(46, 204, 113, 0.1);
     border-left: 4px solid #2ecc71;
     padding: 8px 10px;
@@ -985,4 +986,75 @@ h1 {
 
 #item-selection[data-event="special"] #item-selection-heading::after {
     right: -30px;
+}
+
+/* Add new styles at the end of the CSS file */
+
+/* Revival effect style */
+.item-effect.revival {
+  color: #ffcc00;
+  font-weight: bold;
+  animation: glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 5px #fff, 0 0 10px #ff0, 0 0 15px #ff0;
+  }
+  to {
+    text-shadow: 0 0 10px #fff, 0 0 20px #ff0, 0 0 30px #ff0;
+  }
+}
+
+/* Thornmail reflection effect */
+p.item-effect.thornmail-effect {
+  color: #ff4d4d;
+  font-style: italic;
+}
+
+/* Iron Shield effect */
+p.item-effect.shield-effect {
+  color: #4da6ff;
+  font-weight: bold;
+}
+
+/* Training Manual effect */
+p.item-effect.training-effect {
+  color: #66cc66;
+}
+
+/* Mirror Amulet effect */
+p.item-effect.mirror-effect {
+  color: #cc99ff;
+  font-style: italic;
+}
+
+/* Style items in inventory differently based on type */
+.inventory-item[data-applies-to="All"] {
+  color: #ffcc00;
+  font-weight: bold;
+}
+
+/* Add animation for Phoenix Feather revival */
+@keyframes revival {
+  0% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.player-revival {
+  animation: revival 1.5s ease-out;
+}
+
+/* Mirrored move animation */
+@keyframes mirror-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(204, 153, 255, 0.7); }
+  50% { transform: scale(1.2); box-shadow: 0 0 0 10px rgba(204, 153, 255, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(204, 153, 255, 0); }
+}
+
+.mirrored-move {
+  animation: mirror-pulse 1.5s ease-out;
+  background-color: rgba(204, 153, 255, 0.3);
+  border: 2px solid #cc99ff;
 } 
