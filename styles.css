@@ -49,6 +49,44 @@ h1 {
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
+/* Milestone markers for special events (every 5th battle) */
+.progress-bar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(25% - 2px); /* First milestone at 5/20 = 25% */
+    width: 4px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    z-index: 2;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.progress-bar::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% - 2px); /* Second milestone at 10/20 = 50% */
+    width: 4px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    z-index: 2;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+/* Additional milestone markers using pseudo-elements from child elements */
+.progress-fill::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(75% - 2px); /* Third milestone at 15/20 = 75% */
+    width: 4px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    z-index: 2;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
 .progress-fill {
     height: 100%;
     background-image: linear-gradient(to right, #27ae60, #2ecc71, #f39c12);
@@ -838,4 +876,113 @@ h1 {
 .final-boss .progress-fill {
     background-image: linear-gradient(to right, #e74c3c, #c0392b);
     box-shadow: 0 0 12px rgba(231, 76, 60, 0.7);
+}
+
+/* Special Event Styling */
+.item-option.special-event {
+    min-height: 200px;
+    border: 3px solid #3498db;
+    background-color: #2c3e50;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.item-option.special-event:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(52, 152, 219, 0.7);
+}
+
+.item-option.special-event.relic {
+    border: 3px solid #f1c40f;
+    box-shadow: 0 4px 12px rgba(241, 196, 15, 0.5);
+}
+
+.item-option.special-event.relic:hover {
+    box-shadow: 0 8px 20px rgba(241, 196, 15, 0.7);
+}
+
+.special-event-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    animation: pulse 2s infinite;
+}
+
+.item-option.special-event h3 {
+    font-size: 22px;
+    margin: 10px 0;
+}
+
+.item-option.special-event p {
+    font-size: 16px;
+}
+
+/* Special heal effect with larger animation */
+.heal-effect.special-heal {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2ecc71;
+    background-color: rgba(46, 204, 113, 0.2);
+    animation: majorHealPulse 2s ease-in-out;
+}
+
+@keyframes majorHealPulse {
+    0% { transform: scale(1); background-color: rgba(46, 204, 113, 0.2); }
+    50% { transform: scale(1.1); background-color: rgba(46, 204, 113, 0.5); }
+    100% { transform: scale(1); background-color: rgba(46, 204, 113, 0.2); }
+}
+
+/* Animation for the HP bar when major healing is applied */
+@keyframes majorHealAnimation {
+    0% { box-shadow: 0 0 5px rgba(46, 204, 113, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(46, 204, 113, 1); }
+    100% { box-shadow: 0 0 5px rgba(46, 204, 113, 0.5); }
+}
+
+.major-heal {
+    animation: majorHealAnimation 2s ease-in-out;
+}
+
+/* Special relic effect with enhanced visual */
+.item-effect.special-relic {
+    font-size: 18px;
+    font-weight: bold;
+    background-color: rgba(241, 196, 15, 0.2);
+    border-left: 4px solid #f1c40f;
+    animation: relicShine 3s infinite;
+}
+
+@keyframes relicShine {
+    0% { background-color: rgba(241, 196, 15, 0.2); }
+    50% { background-color: rgba(241, 196, 15, 0.4); }
+    100% { background-color: rgba(241, 196, 15, 0.2); }
+}
+
+/* Special event header styling */
+#item-selection[data-event="special"] #item-selection-heading {
+    color: #f39c12;
+    text-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+    font-size: 28px;
+    position: relative;
+    display: inline-block;
+}
+
+#item-selection[data-event="special"] #item-selection-heading::before,
+#item-selection[data-event="special"] #item-selection-heading::after {
+    content: "✨";
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+#item-selection[data-event="special"] #item-selection-heading::before {
+    left: -30px;
+}
+
+#item-selection[data-event="special"] #item-selection-heading::after {
+    right: -30px;
 } 

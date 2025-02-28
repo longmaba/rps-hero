@@ -17,10 +17,10 @@ let gameState = {
   itemSelectionContext: "start", // Context for item selection (start or victory)
   activeDebuff: null, // Current active debuff (if any)
   enemyScaling: {
-    baseHp: 100, // Base enemy HP for the first battle
-    hpIncreasePerBattle: 20, // HP increase per battle
-    baseDamage: GAME_CONFIG.baseDamage, // Base enemy damage for the first battle
-    damageIncreasePerBattle: 5, // Damage increase per battle
+    baseHp: GAME_CONFIG.enemyScaling.baseHp,
+    hpIncreasePerBattle: GAME_CONFIG.enemyScaling.hpIncreasePerBattle,
+    baseDamage: GAME_CONFIG.baseDamage,
+    damageIncreasePerBattle: GAME_CONFIG.enemyScaling.damageIncreasePerBattle,
   },
 };
 
@@ -264,7 +264,14 @@ function resolveRound() {
               // Normal enemy defeated - show victory message
               const victoryElem = document.createElement("p");
               victoryElem.className = "player-win victory-message";
-              victoryElem.innerHTML = "Victory! Choose your reward item!";
+
+              // Check if this is a special event battle (every 5th battle)
+              if (gameState.runProgress % 5 === 0) {
+                victoryElem.innerHTML = "Victory! Special reward available!";
+              } else {
+                victoryElem.innerHTML = "Victory! Choose your reward item!";
+              }
+
               log.appendChild(victoryElem);
 
               // Scroll to the bottom of the log
@@ -274,8 +281,14 @@ function resolveRound() {
               setTimeout(async () => {
                 // Clear enemy moves with animation
                 await clearEnemyMovesWithAnimation();
-                // Show item selection instead of adding random item
-                showItemSelection("victory");
+
+                // Check if this is a special event battle (every 5th battle)
+                if (gameState.runProgress % 5 === 0) {
+                  showSpecialEvent();
+                } else {
+                  // Regular item selection for normal battles
+                  showItemSelection("victory");
+                }
               }, 2000);
             }
           }
@@ -366,10 +379,10 @@ function startNewRun() {
     itemSelectionContext: "start",
     activeDebuff: null,
     enemyScaling: {
-      baseHp: 100, // Base enemy HP for the first battle
-      hpIncreasePerBattle: 20, // HP increase per battle
-      baseDamage: GAME_CONFIG.baseDamage, // Base enemy damage for the first battle
-      damageIncreasePerBattle: 5, // Damage increase per battle
+      baseHp: GAME_CONFIG.enemyScaling.baseHp,
+      hpIncreasePerBattle: GAME_CONFIG.enemyScaling.hpIncreasePerBattle,
+      baseDamage: GAME_CONFIG.baseDamage,
+      damageIncreasePerBattle: GAME_CONFIG.enemyScaling.damageIncreasePerBattle,
     },
   };
 
@@ -756,7 +769,7 @@ function logItemEffect(message) {
   log.scrollTop = log.scrollHeight;
 }
 
-// Create a function to show item selection screen
+// Function to show item selection screen
 function showItemSelection(context) {
   // Set the context (start = new game, victory = after winning a battle)
   gameState.itemSelectionContext = context;
@@ -769,6 +782,9 @@ function showItemSelection(context) {
   const itemSelection = document.getElementById("item-selection");
   itemSelection.classList.remove("hidden");
 
+  // Remove special event attribute if it exists
+  itemSelection.removeAttribute("data-event");
+
   // Determine which pool to use and set appropriate heading
   let itemPool = ITEMS;
   let heading = "";
@@ -779,8 +795,8 @@ function showItemSelection(context) {
     itemPool = RELICS;
     heading = "Choose Your Starting Relic";
     description = "Select one powerful relic to begin your adventure:";
-  } else {
-    // After battles, player selects a normal item
+  } else if (context === "victory") {
+    // After normal battles, player selects a normal item
     itemPool = ITEMS;
     heading = "Choose Your Reward";
     description = "Select one item as your battle reward:";
@@ -822,6 +838,146 @@ function showItemSelection(context) {
 
     itemOptionsContainer.appendChild(itemElement);
   });
+}
+
+// Function to show special event choices after every 5th battle
+function showSpecialEvent() {
+  // Hide battle screen
+  document.getElementById("battle-screen").classList.add("hidden");
+
+  // Show item selection screen (we'll repurpose this screen)
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.classList.remove("hidden");
+
+  // Add the special event attribute for CSS styling
+  itemSelection.setAttribute("data-event", "special");
+
+  // Update heading and description
+  document.getElementById("item-selection-heading").textContent = "Special Event!";
+  document.getElementById("item-selection-message").textContent = "Choose one reward:";
+
+  // Set up the two choices in the options container
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.innerHTML = "";
+
+  // Choice 1: Restore 100 HP
+  const healChoice = document.createElement("div");
+  healChoice.className = "item-option special-event";
+  healChoice.onclick = () => selectSpecialReward("heal");
+
+  const healIcon = document.createElement("div");
+  healIcon.className = "special-event-icon";
+  healIcon.innerHTML = "❤️";
+
+  const healTitle = document.createElement("h3");
+  healTitle.textContent = "Restore Health";
+
+  const healDesc = document.createElement("p");
+  healDesc.textContent = "Restore 100 HP to your character";
+
+  healChoice.appendChild(healIcon);
+  healChoice.appendChild(healTitle);
+  healChoice.appendChild(healDesc);
+
+  // Choice 2: Random Relic
+  const relicChoice = document.createElement("div");
+  relicChoice.className = "item-option special-event relic";
+  relicChoice.onclick = () => selectSpecialReward("relic");
+
+  const relicIcon = document.createElement("div");
+  relicIcon.className = "special-event-icon";
+  relicIcon.innerHTML = "✨";
+
+  const relicTitle = document.createElement("h3");
+  relicTitle.textContent = "Random Relic";
+
+  const relicDesc = document.createElement("p");
+  relicDesc.textContent = "Receive a random powerful relic";
+
+  relicChoice.appendChild(relicIcon);
+  relicChoice.appendChild(relicTitle);
+  relicChoice.appendChild(relicDesc);
+
+  // Add both choices to the container
+  itemOptionsContainer.appendChild(healChoice);
+  itemOptionsContainer.appendChild(relicChoice);
+}
+
+// Function to handle special reward selection
+function selectSpecialReward(choice) {
+  // Hide the item selection screen
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.classList.add("hidden");
+
+  // Remove special event attribute
+  itemSelection.removeAttribute("data-event");
+
+  // Show the battle screen again
+  document.getElementById("battle-screen").classList.remove("hidden");
+
+  // Get the resolution log for messages
+  const log = document.getElementById("resolution-log");
+
+  if (choice === "heal") {
+    // Heal the player by 100 HP
+    const oldHp = gameState.player.hp;
+    gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + 100);
+    const actualHealAmount = gameState.player.hp - oldHp;
+
+    // Log the healing
+    const healMsg = document.createElement("p");
+    healMsg.className = "heal-effect special-heal";
+    healMsg.textContent = `❤️ Major Restoration: Recovered ${actualHealAmount} HP!`;
+    log.appendChild(healMsg);
+    log.scrollTop = log.scrollHeight;
+
+    // Update HP display
+    updateHP("player", gameState.player.hp);
+
+    // Add a pulsing animation to the player HP bar
+    const playerHpBar = document.getElementById("player-hp-bar");
+    playerHpBar.classList.add("major-heal");
+    setTimeout(() => {
+      playerHpBar.classList.remove("major-heal");
+    }, 2000);
+  } else if (choice === "relic") {
+    // Select a random relic
+    const availableRelics = [...RELICS];
+
+    // Filter out relics the player already has
+    const playerRelicNames = gameState.player.inventory.filter((item) => RELICS.some((relic) => relic.name === item.name)).map((item) => item.name);
+
+    // Remove relics the player already has
+    const uniqueRelics = availableRelics.filter((relic) => !playerRelicNames.includes(relic.name));
+
+    // If all relics are collected, just pick any random one
+    const relicPool = uniqueRelics.length > 0 ? uniqueRelics : availableRelics;
+
+    // Get a random relic
+    const randomRelic = relicPool[Math.floor(Math.random() * relicPool.length)];
+
+    // Add relic to inventory
+    gameState.player.inventory.push(randomRelic);
+
+    // Log the relic acquisition
+    const relicMsg = document.createElement("p");
+    relicMsg.className = "item-effect special-relic";
+    relicMsg.textContent = `✨ Obtained Relic: ${randomRelic.name}!`;
+    log.appendChild(relicMsg);
+
+    const relicDesc = document.createElement("p");
+    relicDesc.className = "item-effect";
+    relicDesc.textContent = `✨ ${randomRelic.description}`;
+    log.appendChild(relicDesc);
+
+    log.scrollTop = log.scrollHeight;
+
+    // Update inventory display
+    updateInventoryDisplay();
+  }
+
+  // Continue to next battle
+  initBattle();
 }
 
 // Start game

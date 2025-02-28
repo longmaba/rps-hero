@@ -12,10 +12,12 @@
         <h1>🎮 RPS Roguelike Adventure 🎮</h1>
         <div id="run-map">
             <div class="progress-container">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
+                <div class="progress-text">
+                    <span id="level-indicator">0</span>/20 - <span id="run-progress">Start your journey</span>
                 </div>
-                <div class="progress-text">Level: <span id="level-indicator">1</span>/20</div>
+                <div class="progress-bar" title="Special events occur at battles 5, 10, and 15">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
             </div>
         </div>
         <div id="status">

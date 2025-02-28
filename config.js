@@ -226,11 +226,17 @@ const DEBUFFS = [
 
 // Game configuration
 const GAME_CONFIG = {
-  playerStartingHp: 250,
+  playerStartingHp: 400,
   baseDamage: 20,
   maxBattles: 20, // Temporarily increased to 20 levels of basic enemies
   battleDelay: 1000, // Delay between action comparisons in ms,
   debuffChance: 0.35, // 35% chance to get a debuff per battle
+  // Enemy scaling configuration
+  enemyScaling: {
+    baseHp: 100, // Base enemy HP for the first battle
+    hpIncreasePerBattle: 5, // HP increase per battle
+    damageIncreasePerBattle: 2, // Damage increase per battle
+  },
 };
 
 // Export the configurations
