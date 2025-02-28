@@ -28,7 +28,7 @@ const ENEMY_TYPES = [
   },
 ];
 
-// Item pool configuration
+// Basic items configuration (obtainable after battles)
 const ITEMS = [
   {
     name: "Obsidian Rock",
@@ -51,6 +51,10 @@ const ITEMS = [
     effect: (dmg) => dmg + 10,
     description: "Increases Paper damage by 10",
   },
+];
+
+// Relic configuration (rare, powerful items available at the start)
+const RELICS = [
   {
     name: "Double Dragon",
     type: "conditionalModifier",
@@ -68,6 +72,20 @@ const ITEMS = [
     description: "Scissors have 40% chance to do 400% damage when winning",
     condition: "win",
     triggerMessage: (dmg) => `Lethal precision! Critical hit for ${dmg} damage!`,
+  },
+  {
+    name: "Vampire Blade",
+    type: "conditionalModifier",
+    appliesTo: "Scissors",
+    effect: (dmg) => dmg, // Don't modify damage - just return it as is
+    description: "Scissors heal you for 25% of damage dealt",
+    condition: "win",
+    triggerMessage: (dmg) => {
+      const lifestealAmount = Math.floor(dmg * 0.25);
+      return `Vampire Blade absorbs life! Healed for ${lifestealAmount} HP!`;
+    },
+    lifestealPercent: 0.25, // Store the configurable lifesteal percentage
+    isLifesteal: true, // Flag to identify this as a lifesteal item
   },
   {
     name: "Absolute Defense",
@@ -218,11 +236,12 @@ const GAME_CONFIG = {
 // Export the configurations
 if (typeof module !== "undefined" && module.exports) {
   // Node.js environment (for testing)
-  module.exports = { ENEMY_TYPES, ITEMS, GAME_CONFIG, DEBUFFS };
+  module.exports = { ENEMY_TYPES, ITEMS, RELICS, GAME_CONFIG, DEBUFFS };
 } else {
   // Browser environment
   window.ENEMY_TYPES = ENEMY_TYPES;
   window.ITEMS = ITEMS;
+  window.RELICS = RELICS;
   window.GAME_CONFIG = GAME_CONFIG;
   window.DEBUFFS = DEBUFFS;
 }

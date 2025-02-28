@@ -16,6 +16,12 @@ let gameState = {
   maxBattles: GAME_CONFIG.maxBattles, // Final boss at battle 3
   itemSelectionContext: "start", // Context for item selection (start or victory)
   activeDebuff: null, // Current active debuff (if any)
+  enemyScaling: {
+    baseHp: 100, // Base enemy HP for the first battle
+    hpIncreasePerBattle: 20, // HP increase per battle
+    baseDamage: GAME_CONFIG.baseDamage, // Base enemy damage for the first battle
+    damageIncreasePerBattle: 5, // Damage increase per battle
+  },
 };
 
 // Initialize game
@@ -23,12 +29,21 @@ function initBattle() {
   gameState.runProgress++;
   gameState.currentRound = 1; // Reset round for each battle
 
-  // Always use the Basic enemy type (index 0)
-  const enemyType = ENEMY_TYPES[0];
+  // Select enemy type: Boss on final battle, otherwise Basic
+  let enemyTypeIndex = 0; // Default to Basic (index 0)
+
+  if (gameState.runProgress === gameState.maxBattles) {
+    enemyTypeIndex = 2; // Boss type (index 2)
+  }
+
+  const enemyType = ENEMY_TYPES[enemyTypeIndex];
+
+  // Calculate scaled HP based on runProgress
+  const scaledHp = enemyType.maxHp + (gameState.runProgress - 1) * gameState.enemyScaling.hpIncreasePerBattle;
 
   gameState.enemy = {
-    hp: enemyType.maxHp,
-    maxHp: enemyType.maxHp,
+    hp: scaledHp,
+    maxHp: scaledHp,
     type: enemyType, // Store the enemy type object
     actions: enemyType.getActions(gameState), // Set actions for the first round
   };
@@ -102,7 +117,9 @@ function resolveRound() {
       const playerAction = gameState.player.plannedActions[i];
       const enemyAction = gameState.enemy.actions[i];
       let playerDmg = GAME_CONFIG.baseDamage;
-      let enemyDmg = GAME_CONFIG.baseDamage;
+
+      // Calculate scaled enemy damage based on runProgress
+      let enemyDmg = gameState.enemyScaling.baseDamage + (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
 
       // Reveal enemy action
       const enemyActionElem = document.querySelector(`#enemy-actions div[data-index="${i}"]`);
@@ -132,14 +149,37 @@ function resolveRound() {
             const oldDamage = playerDmg;
             playerDmg = item.effect(playerDmg);
 
-            // Log item effect if damage was modified
-            if (playerDmg !== oldDamage && item.triggerMessage) {
+            // Log item effect if damage was modified, but skip lifesteal items for now
+            if (playerDmg !== oldDamage && item.triggerMessage && !item.isLifesteal) {
               logItemEffect(item.triggerMessage(playerDmg));
             }
           }
         });
 
+        // Apply enemy damage first
         gameState.enemy.hp -= playerDmg;
+
+        // Now apply lifesteal effects after all damage calculations are complete
+        gameState.player.inventory.forEach((item) => {
+          if (item.isLifesteal && item.appliesTo === playerAction && item.condition === "win") {
+            // Calculate lifesteal based on the final damage value
+            const lifestealAmount = Math.floor(playerDmg * item.lifestealPercent);
+
+            // Apply healing
+            const oldHp = gameState.player.hp;
+            gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + lifestealAmount);
+            const actualHeal = gameState.player.hp - oldHp;
+
+            // Update UI
+            updateHP("player", gameState.player.hp);
+
+            // Log the lifesteal effect
+            if (item.triggerMessage) {
+              logItemEffect(item.triggerMessage(playerDmg));
+            }
+          }
+        });
+
         result = `Player wins! ${getEnemyName()} takes ${playerDmg} damage.`;
         animateHPChange("enemy");
       } else {
@@ -325,6 +365,12 @@ function startNewRun() {
     playerLastRoundActions: null,
     itemSelectionContext: "start",
     activeDebuff: null,
+    enemyScaling: {
+      baseHp: 100, // Base enemy HP for the first battle
+      hpIncreasePerBattle: 20, // HP increase per battle
+      baseDamage: GAME_CONFIG.baseDamage, // Base enemy damage for the first battle
+      damageIncreasePerBattle: 5, // Damage increase per battle
+    },
   };
 
   // Clear the resolution log when starting a new game
@@ -353,54 +399,156 @@ function startNewRun() {
   showItemSelection("start");
 }
 
-// Add an action
-function addAction(action) {
-  // Check if there's an active debuff that restricts this action
-  if (gameState.activeDebuff) {
-    const debuff = gameState.activeDebuff;
+// Helper function to update planned actions display
+function updatePlannedActionsDisplay() {
+  const plannedDiv = document.getElementById("planned-actions");
+  plannedDiv.innerHTML = "";
 
-    // Check for ban_action type debuffs
-    if (debuff.effect.type === "ban_action" && debuff.effect.action === action) {
-      // Create a notification that this action is banned
-      const log = document.getElementById("resolution-log");
-      const notifElem = document.createElement("p");
-      notifElem.className = "debuff-effect";
-      notifElem.textContent = `${debuff.icon} ${debuff.name}: Can't use ${action}!`;
-      log.appendChild(notifElem);
-      log.scrollTop = log.scrollHeight;
-      return; // Don't add the action
-    }
+  // Display planned actions with emojis
+  gameState.player.plannedActions.forEach((action, index) => {
+    const actionElem = document.createElement("div");
+    actionElem.textContent = emojiMap[action];
+    actionElem.setAttribute("title", action);
+    actionElem.setAttribute("aria-label", action);
+    actionElem.onclick = () => removeAction(index);
+    plannedDiv.appendChild(actionElem);
+  });
 
-    // Check for only_allow_action type debuffs
-    if (debuff.effect.type === "only_allow_action" && debuff.effect.action !== action) {
-      // Create a notification that only a specific action is allowed
-      const log = document.getElementById("resolution-log");
-      const notifElem = document.createElement("p");
-      notifElem.className = "debuff-effect";
-      notifElem.textContent = `${debuff.icon} ${debuff.name}: Can only use ${debuff.effect.action}!`;
-      log.appendChild(notifElem);
-      log.scrollTop = log.scrollHeight;
-      return; // Don't add the action
-    }
+  // Add placeholders for empty slots
+  for (let i = gameState.player.plannedActions.length; i < 5; i++) {
+    const emptyElem = document.createElement("div");
+    emptyElem.textContent = "⬜"; // Empty slot emoji
+    plannedDiv.appendChild(emptyElem);
   }
 
-  // If we get here, the action is allowed
+  // Update resolve button state
+  document.getElementById("resolve-btn").disabled = gameState.player.plannedActions.length !== 5;
+}
+
+// Function to update the UI
+function updateUI() {
+  // Update player and enemy HP bars
+  updateHP("player", gameState.player.hp);
+  updateHP("enemy", gameState.enemy.hp);
+
+  // Update progress indicators
+  document.getElementById("level-indicator").textContent = gameState.runProgress;
+  document.getElementById("progress-fill").style.width = `${(gameState.runProgress / gameState.maxBattles) * 100}%`;
+
+  // Update round number
+  document.getElementById("round-number").textContent = gameState.currentRound;
+
+  // Update run progress text
+  const runProgressElem = document.getElementById("run-progress");
+  let difficultyIndicator = "";
+
+  // Add difficulty indicator based on run progress
+  if (gameState.runProgress > 1) {
+    const hpIncrease = (gameState.runProgress - 1) * gameState.enemyScaling.hpIncreasePerBattle;
+    const dmgIncrease = (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
+    difficultyIndicator = ` (HP +${hpIncrease}, DMG +${dmgIncrease})`;
+
+    // Set data attribute for CSS pseudo-element
+    runProgressElem.setAttribute("data-difficulty", `+${hpIncrease} HP, +${dmgIncrease} DMG`);
+  } else {
+    // Clear data attribute for first battle
+    runProgressElem.removeAttribute("data-difficulty");
+  }
+
+  // Add final boss indicator if on final battle
+  const gameContainer = document.getElementById("game-container");
+  if (gameState.runProgress === gameState.maxBattles) {
+    runProgressElem.textContent = `Final Boss Battle`;
+    gameContainer.classList.add("final-boss");
+  } else {
+    runProgressElem.textContent = `Battle ${gameState.runProgress}`;
+    gameContainer.classList.remove("final-boss");
+  }
+
+  // Add battle-start class to trigger animations
+  document.getElementById("enemy-hp-bar").classList.add("battle-start");
+  // Remove class after animation completes
+  setTimeout(() => {
+    document.getElementById("enemy-hp-bar").classList.remove("battle-start");
+  }, 2000);
+
+  // Update the enemy name and description
+  const enemyNameElem = document.getElementById("enemy-name");
+  const enemyDescElem = document.getElementById("enemy-description");
+
+  enemyNameElem.textContent = `${gameState.enemy.type.type} Enemy`;
+  enemyDescElem.textContent = gameState.enemy.type.description;
+
+  // Update the enemy actions container
+  const enemyActionsContainer = document.getElementById("enemy-actions");
+  enemyActionsContainer.innerHTML = ""; // Clear existing actions
+
+  // Add hidden actions for enemy
+  for (let i = 0; i < 5; i++) {
+    const actionDiv = document.createElement("div");
+    actionDiv.className = "hidden-action";
+    actionDiv.textContent = "?";
+    actionDiv.dataset.index = i;
+    enemyActionsContainer.appendChild(actionDiv);
+  }
+
+  // Update planned actions display
+  updatePlannedActionsDisplay();
+
+  // Update inventory display
+  updateInventoryDisplay();
+
+  // Set up debuff display
+  setupDebuffDisplay();
+}
+
+// Function to add player action
+function addAction(action) {
+  // Check if the action is banned by active debuff
+  if (gameState.activeDebuff && gameState.activeDebuff.effect.type === "ban_action" && gameState.activeDebuff.effect.action === action) {
+    // Shake the button to indicate it's not allowed
+    const button = document.querySelector(`#actions button[aria-label="Select ${action}"]`);
+    if (button) {
+      button.classList.add("shake");
+      setTimeout(() => {
+        button.classList.remove("shake");
+      }, 500);
+    }
+    return;
+  }
+
+  // Check if only a specific action is allowed
+  if (gameState.activeDebuff && gameState.activeDebuff.effect.type === "only_allow_action" && gameState.activeDebuff.effect.action !== action) {
+    // Shake the button to indicate it's not allowed
+    const button = document.querySelector(`#actions button[aria-label="Select ${action}"]`);
+    if (button) {
+      button.classList.add("shake");
+      setTimeout(() => {
+        button.classList.remove("shake");
+      }, 500);
+    }
+    return;
+  }
+
   if (gameState.player.plannedActions.length < 5) {
     gameState.player.plannedActions.push(action);
-    updateUI();
+    // Directly update the planned actions display to avoid redrawing the entire UI
+    updatePlannedActionsDisplay();
   }
 }
 
-// Remove a specific action
+// Function to remove player action at specific index
 function removeAction(index) {
   gameState.player.plannedActions.splice(index, 1);
-  updateUI();
+  // Directly update the planned actions display to avoid redrawing the entire UI
+  updatePlannedActionsDisplay();
 }
 
-// Clear all actions
+// Function to clear all planned actions
 function clearAllActions() {
   gameState.player.plannedActions = [];
-  updateUI();
+  // Directly update the planned actions display to avoid redrawing the entire UI
+  updatePlannedActionsDisplay();
 }
 
 const emojiMap = {
@@ -409,24 +557,105 @@ const emojiMap = {
   Scissors: "✌️",
 };
 
-// Update UI with clickable actions
-function updateUI() {
-  // Update HP text and bars
-  updateHP("player", Math.max(0, gameState.player.hp));
-  updateHP("enemy", Math.max(0, gameState.enemy.hp));
+// Function to get random unique items from specified item pool
+function getRandomUniqueItems(count, itemPool) {
+  const items = [...itemPool]; // Create a copy of the specified item array
+  const result = [];
 
-  // Update enemy name in the UI
-  document.getElementById("enemy-name").textContent = getEnemyName();
+  // Ensure we don't try to get more items than available
+  count = Math.min(count, items.length);
 
-  // Update enemy description
-  const enemyDescription = document.getElementById("enemy-description");
-  if (gameState.enemy.type.description) {
-    enemyDescription.textContent = gameState.enemy.type.description;
-    enemyDescription.classList.remove("hidden");
-  } else {
-    enemyDescription.classList.add("hidden");
+  // Randomly select 'count' items
+  for (let i = 0; i < count; i++) {
+    const randomIndex = Math.floor(Math.random() * items.length);
+    result.push(items[randomIndex]);
+    // Remove the selected item to avoid duplicates
+    items.splice(randomIndex, 1);
   }
 
+  return result;
+}
+
+// Function to handle item selection
+function selectItem(item) {
+  // Add the selected item to player's inventory
+  gameState.player.inventory.push(item);
+
+  // Hide item selection screen
+  document.getElementById("item-selection").classList.add("hidden");
+
+  // Continue based on context
+  if (gameState.itemSelectionContext === "start") {
+    // Start the first battle
+    document.getElementById("battle-screen").classList.remove("hidden");
+    initBattle();
+  } else {
+    // Heal the player after battle victory
+    const healAmount = 40;
+    const oldHp = gameState.player.hp;
+    gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + healAmount);
+    const actualHealAmount = gameState.player.hp - oldHp;
+
+    // Show healing message in log
+    const log = document.getElementById("resolution-log");
+    const healMsg = document.createElement("p");
+    healMsg.className = "heal-effect";
+    healMsg.textContent = `💚 Battle Rest: Recovered ${actualHealAmount} HP!`;
+    log.appendChild(healMsg);
+    log.scrollTop = log.scrollHeight;
+
+    // Continue to next battle after victory
+    document.getElementById("battle-screen").classList.remove("hidden");
+    initBattle();
+  }
+}
+
+// Helper function to update inventory display
+function updateInventoryDisplay() {
+  // Update inventory with descriptions as tooltips
+  const inventoryList = document.getElementById("inventory");
+  inventoryList.innerHTML = "";
+
+  if (gameState.player.inventory.length === 0) {
+    inventoryList.textContent = "None";
+  } else {
+    // Count occurrences of each item by name
+    const itemCounts = {};
+    gameState.player.inventory.forEach((item) => {
+      if (itemCounts[item.name]) {
+        itemCounts[item.name].count++;
+      } else {
+        itemCounts[item.name] = {
+          item: item,
+          count: 1,
+        };
+      }
+    });
+
+    // Display each unique item with count
+    const uniqueItems = Object.values(itemCounts);
+    uniqueItems.forEach((itemData, index) => {
+      const item = itemData.item;
+      const count = itemData.count;
+
+      const itemElem = document.createElement("span");
+      itemElem.className = "inventory-item";
+      itemElem.textContent = item.name + (count > 1 ? ` (×${count})` : "");
+      itemElem.setAttribute("title", item.description || "");
+      itemElem.setAttribute("data-applies-to", item.appliesTo);
+
+      // Add a comma if not the last item
+      if (index < uniqueItems.length - 1) {
+        itemElem.textContent += ", ";
+      }
+
+      inventoryList.appendChild(itemElem);
+    });
+  }
+}
+
+// Helper function to set up debuff display
+function setupDebuffDisplay() {
   // Update active debuff display
   const debuffContainer = document.getElementById("debuff-container");
   if (debuffContainer) {
@@ -484,94 +713,6 @@ function updateUI() {
       });
     }
   }
-
-  document.getElementById("run-progress").textContent = `Battle ${gameState.runProgress}`;
-  document.getElementById("round-number").textContent = gameState.currentRound;
-
-  // Update progress bar for 20 levels
-  const progressPercent = (gameState.runProgress / gameState.maxBattles) * 100;
-  document.getElementById("progress-fill").style.width = `${progressPercent}%`;
-  document.getElementById("level-indicator").textContent = gameState.runProgress;
-
-  // Update inventory with descriptions as tooltips
-  const inventoryList = document.getElementById("inventory");
-  inventoryList.innerHTML = "";
-
-  if (gameState.player.inventory.length === 0) {
-    inventoryList.textContent = "None";
-  } else {
-    // Count occurrences of each item by name
-    const itemCounts = {};
-    gameState.player.inventory.forEach((item) => {
-      if (itemCounts[item.name]) {
-        itemCounts[item.name].count++;
-      } else {
-        itemCounts[item.name] = {
-          item: item,
-          count: 1,
-        };
-      }
-    });
-
-    // Display each unique item with count
-    const uniqueItems = Object.values(itemCounts);
-    uniqueItems.forEach((itemData, index) => {
-      const item = itemData.item;
-      const count = itemData.count;
-
-      const itemElem = document.createElement("span");
-      itemElem.className = "inventory-item";
-      itemElem.textContent = item.name + (count > 1 ? ` (×${count})` : "");
-      itemElem.setAttribute("title", item.description || "");
-      itemElem.setAttribute("data-applies-to", item.appliesTo);
-
-      // Add a comma if not the last item
-      if (index < uniqueItems.length - 1) {
-        itemElem.textContent += ", ";
-      }
-
-      inventoryList.appendChild(itemElem);
-    });
-  }
-
-  // Set up enemy action placeholders
-  const enemyActionsDiv = document.getElementById("enemy-actions");
-  enemyActionsDiv.innerHTML = "";
-
-  // Create hidden placeholders for enemy actions
-  for (let i = 0; i < 5; i++) {
-    const actionElem = document.createElement("div");
-    actionElem.textContent = "?";
-    actionElem.classList.add("hidden-action");
-    actionElem.setAttribute("data-index", i);
-    enemyActionsDiv.appendChild(actionElem);
-  }
-
-  const plannedDiv = document.getElementById("planned-actions");
-  plannedDiv.innerHTML = "";
-
-  // Display planned actions with emojis
-  gameState.player.plannedActions.forEach((action, index) => {
-    const actionElem = document.createElement("div");
-    actionElem.textContent = emojiMap[action];
-    actionElem.setAttribute("title", action);
-    actionElem.setAttribute("aria-label", action);
-    actionElem.onclick = () => removeAction(index);
-    plannedDiv.appendChild(actionElem);
-  });
-
-  // Add placeholders for empty slots
-  for (let i = gameState.player.plannedActions.length; i < 5; i++) {
-    const emptyElem = document.createElement("div");
-    emptyElem.textContent = "⬜"; // Empty slot emoji
-    plannedDiv.appendChild(emptyElem);
-  }
-  document.getElementById("resolve-btn").disabled = gameState.player.plannedActions.length !== 5;
-
-  // Update run map
-  document.querySelectorAll(".step").forEach((step, index) => {
-    step.classList.toggle("current", index + 1 === gameState.runProgress);
-  });
 }
 
 // Function to clear enemy moves with animation
@@ -628,16 +769,29 @@ function showItemSelection(context) {
   const itemSelection = document.getElementById("item-selection");
   itemSelection.classList.remove("hidden");
 
-  // Set message based on context
-  const message = document.getElementById("item-selection-message");
+  // Determine which pool to use and set appropriate heading
+  let itemPool = ITEMS;
+  let heading = "";
+  let description = "";
+
   if (context === "start") {
-    message.textContent = "Choose your starting item:";
+    // At the start, player selects a relic
+    itemPool = RELICS;
+    heading = "Choose Your Starting Relic";
+    description = "Select one powerful relic to begin your adventure:";
   } else {
-    message.textContent = "Choose a reward for your victory:";
+    // After battles, player selects a normal item
+    itemPool = ITEMS;
+    heading = "Choose Your Reward";
+    description = "Select one item as your battle reward:";
   }
 
-  // Get 3 random unique items
-  const itemOptions = getRandomUniqueItems(3);
+  // Update heading and description
+  document.getElementById("item-selection-heading").textContent = heading;
+  document.getElementById("item-selection-message").textContent = description;
+
+  // Get random unique items from the appropriate pool
+  const itemOptions = getRandomUniqueItems(3, itemPool);
 
   // Display items
   const itemOptionsContainer = document.getElementById("item-options");
@@ -646,6 +800,9 @@ function showItemSelection(context) {
   itemOptions.forEach((item) => {
     const itemElement = document.createElement("div");
     itemElement.className = "item-option";
+    if (context === "start") {
+      itemElement.classList.add("relic"); // Add relic class for styling
+    }
     itemElement.onclick = () => selectItem(item);
 
     const nameElement = document.createElement("h3");
@@ -665,59 +822,6 @@ function showItemSelection(context) {
 
     itemOptionsContainer.appendChild(itemElement);
   });
-}
-
-// Function to get random unique items from ITEMS array
-function getRandomUniqueItems(count) {
-  const items = [...ITEMS]; // Create a copy of the items array
-  const result = [];
-
-  // Ensure we don't try to get more items than available
-  count = Math.min(count, items.length);
-
-  // Randomly select 'count' items
-  for (let i = 0; i < count; i++) {
-    const randomIndex = Math.floor(Math.random() * items.length);
-    result.push(items[randomIndex]);
-    // Remove the selected item to avoid duplicates
-    items.splice(randomIndex, 1);
-  }
-
-  return result;
-}
-
-// Function to handle item selection
-function selectItem(item) {
-  // Add the selected item to player's inventory
-  gameState.player.inventory.push(item);
-
-  // Hide item selection screen
-  document.getElementById("item-selection").classList.add("hidden");
-
-  // Continue based on context
-  if (gameState.itemSelectionContext === "start") {
-    // Start the first battle
-    document.getElementById("battle-screen").classList.remove("hidden");
-    initBattle();
-  } else {
-    // Heal the player after battle victory
-    const healAmount = 40;
-    const oldHp = gameState.player.hp;
-    gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + healAmount);
-    const actualHealAmount = gameState.player.hp - oldHp;
-
-    // Show healing message in log
-    const log = document.getElementById("resolution-log");
-    const healMsg = document.createElement("p");
-    healMsg.className = "heal-effect";
-    healMsg.textContent = `💚 Battle Rest: Recovered ${actualHealAmount} HP!`;
-    log.appendChild(healMsg);
-    log.scrollTop = log.scrollHeight;
-
-    // Continue to next battle after victory
-    document.getElementById("battle-screen").classList.remove("hidden");
-    initBattle();
-  }
 }
 
 // Start game

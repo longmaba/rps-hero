@@ -51,11 +51,9 @@ h1 {
 
 .progress-fill {
     height: 100%;
-    background-color: #2ecc71;
-    border-radius: 10px;
-    transition: width 0.5s ease-out;
-    width: 5%; /* Default to 5% (1/20) */
+    background-image: linear-gradient(to right, #27ae60, #2ecc71, #f39c12);
     box-shadow: 0 0 8px rgba(46, 204, 113, 0.7);
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .progress-text {
@@ -64,6 +62,44 @@ h1 {
     color: #f1c40f;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     margin-top: 5px;
+}
+
+/* Modified run progress text styling to handle longer text with difficulty indicators */
+#run-progress {
+    font-weight: bold;
+    color: #f39c12;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    position: relative;
+    display: inline-block;
+}
+
+/* Add styling for the difficulty indicator */
+#run-progress::after {
+    content: attr(data-difficulty);
+    display: block;
+    font-size: 0.8em;
+    color: #e74c3c;
+    text-shadow: none;
+    opacity: 0.9;
+    margin-top: 2px;
+}
+
+/* Enemy HP bar pulses when difficulty increases */
+@keyframes enemyHpBarPulse {
+    0% { box-shadow: 0 0 0 rgba(231, 76, 60, 0.4); }
+    50% { box-shadow: 0 0 10px rgba(231, 76, 60, 0.7); }
+    100% { box-shadow: 0 0 0 rgba(231, 76, 60, 0.4); }
+}
+
+/* When battle starts add a pulse animation to the enemy HP bar */
+.battle-start #enemy-hp-bar {
+    animation: enemyHpBarPulse 2s ease-in-out;
+}
+
+/* Make the HP text more visible on all backgrounds */
+.hp-text {
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.8), 0 0 5px rgba(0, 0, 0, 0.6);
+    font-weight: bold;
 }
 
 /* Remove old step styling */
@@ -495,6 +531,37 @@ h1 {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Styling for relic items to make them look special */
+.item-option.relic {
+    background-color: #2c3e50;
+    border: 2px solid #f1c40f;
+    box-shadow: 0 4px 15px rgba(241, 196, 15, 0.4);
+}
+
+.item-option.relic:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 20px rgba(241, 196, 15, 0.6);
+    background-color: #2a3b4d;
+}
+
+.item-option.relic h3 {
+    color: #f39c12;
+    text-shadow: 0 0 5px rgba(243, 156, 18, 0.3);
+}
+
+.item-option.relic:before {
+    content: "✨";
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    font-size: 24px;
+    filter: drop-shadow(0 0 5px rgba(241, 196, 15, 0.7));
+}
+
+.item-option {
+    position: relative; /* For the relic star positioning */
+}
+
 .item-option:hover {
     transform: scale(1.05);
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
@@ -758,4 +825,17 @@ h1 {
 .disabled-by-debuff:hover {
     transform: none !important;
     box-shadow: none !important;
+}
+
+/* Updated styling for progress bar to make it more prominent */
+.progress-fill {
+    background-image: linear-gradient(to right, #27ae60, #2ecc71, #f39c12);
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.7);
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* When we reach the final boss, change the progress bar color */
+.final-boss .progress-fill {
+    background-image: linear-gradient(to right, #e74c3c, #c0392b);
+    box-shadow: 0 0 12px rgba(231, 76, 60, 0.7);
 } 
