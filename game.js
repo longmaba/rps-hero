@@ -5,6 +5,7 @@ let gameState = {
     maxHp: GAME_CONFIG.playerStartingHp,
     inventory: [], // No starting item, will be chosen
     plannedActions: [],
+    coins: GAME_CONFIG.currency.startingAmount, // Player's currency
   },
   enemy: {
     hp: 100,
@@ -290,10 +291,20 @@ function resolveRound() {
           gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
 
           if (gameState.runProgress === gameState.maxBattles) {
+            // Award bonus coins for completing all battles
+            const bonusCoins = 500;
+            gameState.player.coins += bonusCoins;
+
             const victoryMsg = document.createElement("p");
             victoryMsg.className = "player-win victory-message";
             victoryMsg.textContent = "You completed all 20 levels!";
             log.appendChild(victoryMsg);
+
+            const coinsMsg = document.createElement("p");
+            coinsMsg.className = "coin-effect";
+            coinsMsg.textContent = `💰 BONUS COINS: +${bonusCoins} (Total: ${gameState.player.coins})`;
+            log.appendChild(coinsMsg);
+
             log.scrollTop = log.scrollHeight;
 
             // Add delay to show enemy moves before game over screen
@@ -411,6 +422,7 @@ function startNewRun() {
       maxHp: GAME_CONFIG.playerStartingHp,
       inventory: [], // Empty inventory, will pick item
       plannedActions: [],
+      coins: GAME_CONFIG.currency.startingAmount, // Player's currency
     },
     enemy: { hp: 100, maxHp: 100, actions: [], type: "Basic" },
     runProgress: 0,
@@ -480,6 +492,14 @@ function updatePlannedActionsDisplay() {
   document.getElementById("resolve-btn").disabled = gameState.player.plannedActions.length !== 5;
 }
 
+// Function to update currency display
+function updateCurrencyDisplay() {
+  const currencyDisplay = document.getElementById("player-currency");
+  if (currencyDisplay) {
+    currencyDisplay.textContent = gameState.player.coins;
+  }
+}
+
 // Function to update the UI
 function updateUI() {
   // Update player and enemy HP bars
@@ -492,6 +512,9 @@ function updateUI() {
 
   // Update round number
   document.getElementById("round-number").textContent = gameState.currentRound;
+
+  // Update currency display
+  updateCurrencyDisplay();
 
   // Update run progress text
   const runProgressElem = document.getElementById("run-progress");
@@ -631,6 +654,26 @@ function getRandomUniqueItems(count, itemPool) {
   return result;
 }
 
+// Function to award coins after battle victory
+function awardCoins() {
+  const min = GAME_CONFIG.currency.minRewardPerBattle;
+  const max = GAME_CONFIG.currency.maxRewardPerBattle;
+  const coinsAwarded = Math.floor(Math.random() * (max - min + 1)) + min;
+
+  gameState.player.coins += coinsAwarded;
+
+  // Show coins message in log
+  const log = document.getElementById("resolution-log");
+  const coinsMsg = document.createElement("p");
+  coinsMsg.className = "coin-effect";
+  coinsMsg.textContent = `💰 Coins: +${coinsAwarded} (Total: ${gameState.player.coins})`;
+  log.appendChild(coinsMsg);
+  log.scrollTop = log.scrollHeight;
+
+  // Update currency display
+  updateCurrencyDisplay();
+}
+
 // Function to handle item selection
 function selectItem(item) {
   // Add the selected item to player's inventory
@@ -659,6 +702,9 @@ function selectItem(item) {
     document.getElementById("battle-screen").classList.remove("hidden");
     initBattle();
   } else {
+    // Award coins after victory (before applying other effects)
+    awardCoins();
+
     // Apply post-battle effects (like healing)
     applyPostBattleEffects();
 

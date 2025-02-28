@@ -310,6 +310,12 @@ const GAME_CONFIG = {
   maxBattles: 20, // Temporarily increased to 20 levels of basic enemies
   battleDelay: 1000, // Delay between action comparisons in ms,
   debuffChance: 0.35, // 35% chance to get a debuff per battle
+  // Currency configuration
+  currency: {
+    startingAmount: 0,
+    minRewardPerBattle: 25,
+    maxRewardPerBattle: 75,
+  },
   // Enemy scaling configuration
   enemyScaling: {
     baseHp: 100, // Base enemy HP for the first battle
