@@ -1,0 +1,620 @@
+/* Gamified Theme - Modern RPG Roguelike Style */
+:root {
+    --main-bg-color: #1a1c2c;
+    --panel-bg-color: #2f344d; 
+    --primary-color: #7d3af0;
+    --secondary-color: #ff9f43;
+    --accent-color: #00d2d3;
+    --text-color: #edf2f7;
+    --highlight-color: #ff8a5c;
+    --boss-color: #e74c3c;
+    --victory-color: #2ecc71;
+    --defeat-color: #e74c3c;
+    --health-color: #2ecc71;
+    --damage-color: #e74c3c;
+    --button-hover: #7758d1;
+    --map-line-color: #8856ff;
+}
+
+/* Base styling overrides */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    text-align: center;
+    background-color: var(--main-bg-color);
+    background-image: url('data:image/svg+xml,%3Csvg width="42" height="44" viewBox="0 0 42 44" xmlns="http://www.w3.org/2000/svg"%3E%3Cg id="Page-1" fill="none" fill-rule="evenodd"%3E%3Cg id="brick-wall" fill="%23352c63" fill-opacity="0.1"%3E%3Cpath d="M0 0h42v44H0V0zm1 1h40v20H1V1zM0 23h20v20H0V23zm22 0h20v20H22V23z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+}
+
+#game-container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: var(--panel-bg-color);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+}
+
+h1 {
+    color: var(--secondary-color);
+    text-shadow: 0 0 10px rgba(255, 159, 67, 0.5), 0 0 20px rgba(255, 159, 67, 0.3);
+    font-size: 36px;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+}
+
+h2 {
+    color: var(--accent-color);
+    text-shadow: 0 0 8px rgba(0, 210, 211, 0.4);
+    margin-bottom: 15px;
+}
+
+/* Status area styling */
+#status {
+    background-color: rgba(47, 52, 77, 0.7);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    border: 1px solid rgba(125, 58, 240, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+#status > div:nth-child(1), 
+#status > div:nth-child(2) {
+    padding: 10px;
+    background-color: rgba(26, 28, 44, 0.6);
+    border-radius: 8px;
+}
+
+#status p {
+    margin: 5px 0;
+    font-weight: bold;
+    color: var(--accent-color);
+}
+
+.hp-bar {
+    width: 100%;
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    margin: 5px 0 15px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.hp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2ecc71, #1abc9c);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+}
+
+.hp-text {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Battle screen styling */
+#battle-screen {
+    background-color: rgba(47, 52, 77, 0.7);
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 20px;
+    border: 1px solid rgba(125, 58, 240, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+#actions {
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#actions button {
+    padding: 12px 20px;
+    font-size: 18px;
+    background: linear-gradient(45deg, var(--primary-color), #5425b3);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: bold;
+    min-width: 60px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+#actions button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(45deg, var(--button-hover), #4a1fa0);
+}
+
+#actions button:active {
+    transform: translateY(1px);
+}
+
+#actions button:nth-child(4),
+#actions button:nth-child(5) {
+    background: linear-gradient(45deg, #636e72, #2d3436);
+    color: white;
+}
+
+#actions button:nth-child(4):hover,
+#actions button:nth-child(5):hover {
+    background: linear-gradient(45deg, #7f8c8d, #34495e);
+}
+
+#actions button:disabled {
+    background: #7f8c8d;
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Resolution log styling */
+#resolution-log {
+    height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: rgba(26, 28, 44, 0.8);
+    border-radius: 8px;
+    margin-top: 15px;
+    text-align: left;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+#resolution-log p {
+    margin: 8px 0;
+    padding: 5px;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.player-win {
+    background-color: rgba(46, 204, 113, 0.2);
+    border-left: 3px solid var(--victory-color);
+    color: #2ecc71;
+}
+
+.enemy-win {
+    background-color: rgba(231, 76, 60, 0.2);
+    border-left: 3px solid var(--defeat-color);
+    color: #e74c3c;
+}
+
+.tie {
+    background-color: rgba(241, 196, 15, 0.2);
+    border-left: 3px solid #f1c40f;
+    color: #f1c40f;
+}
+
+/* Node map styling */
+#node-map-container {
+    position: relative;
+    height: 140px;
+    width: 100%;
+    background-color: rgba(30, 30, 46, 0.8);
+    background-size: cover;
+    background-position: center;
+    border: 1px solid rgba(125, 58, 240, 0.5);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 20px rgba(125, 58, 240, 0.2);
+}
+
+#run-map h2 {
+    margin-bottom: 10px;
+    color: var(--secondary-color);
+}
+
+/* Fix: Properly sized tooltip styling */
+.tooltip {
+    visibility: hidden;
+    background-color: rgba(26, 28, 44, 0.95);
+    color: var(--text-color);
+    text-align: center;
+    border-radius: 3px;
+    padding: 4px 8px;
+    position: absolute;
+    z-index: 1000;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-size: 12px;
+    max-width: 120px;
+    white-space: nowrap;
+    pointer-events: none;
+    border: 1px solid var(--primary-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -4px;
+    border-width: 4px;
+    border-style: solid;
+    border-color: var(--primary-color) transparent transparent transparent;
+}
+
+.antd-step:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Fix: Better balanced node styling */
+.antd-step {
+    position: relative;
+    display: inline-block;
+    text-align: center;
+    margin: 0 8px;
+    z-index: 5;
+    width: 36px;
+    height: 36px;
+    vertical-align: middle;
+}
+
+.antd-step-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: white;
+    border: 2px solid transparent;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    overflow: visible; /* Allow content to be visible */
+}
+
+/* Status-based styling - updated positions */
+.antd-step[data-status="finished"] .antd-step-icon {
+    background-color: #7f8c8d;
+    border-color: rgba(127, 140, 141, 0.5);
+    box-shadow: 0 0 8px rgba(127, 140, 141, 0.3);
+    opacity: 0.7;
+}
+
+.antd-step[data-status="current"] .antd-step-icon {
+    background-color: var(--primary-color);
+    border-color: rgba(125, 58, 240, 0.7);
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 0 15px rgba(125, 58, 240, 0.6);
+    width: 38px;
+    height: 38px;
+    font-size: 17px;
+    z-index: 3;
+}
+
+.antd-step[data-status="available"] .antd-step-icon {
+    background-color: var(--secondary-color);
+    border-color: rgba(255, 159, 67, 0.7);
+    animation: pulse 1.5s infinite alternate;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(255, 159, 67, 0.4);
+}
+
+.antd-step-line {
+    position: absolute;
+    top: 50%;
+    right: -50%;
+    width: 100%;
+    height: 3px;
+    transform: translateY(-50%);
+    background-color: var(--map-line-color);
+    box-shadow: 0 0 8px rgba(136, 86, 255, 0.5);
+    z-index: 1;
+}
+
+/* Node types - updated for better theme consistency */
+.antd-step[data-type="start"] .antd-step-icon {
+    background-color: #3498db;
+    box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+.antd-step[data-type="battle"] .antd-step-icon {
+    background-color: #fc5c65;
+    box-shadow: 0 0 10px rgba(252, 92, 101, 0.5);
+}
+
+.antd-step[data-type="elite"] .antd-step-icon {
+    background-color: #eb3b5a;
+    box-shadow: 0 0 10px rgba(235, 59, 90, 0.5);
+}
+
+.antd-step[data-type="shop"] .antd-step-icon {
+    background-color: #20bf6b;
+    box-shadow: 0 0 10px rgba(32, 191, 107, 0.5);
+}
+
+.antd-step[data-type="rest"] .antd-step-icon {
+    background-color: #f7b731;
+    box-shadow: 0 0 10px rgba(247, 183, 49, 0.5);
+}
+
+.antd-step[data-type="event"] .antd-step-icon {
+    background-color: #a55eea;
+    box-shadow: 0 0 10px rgba(165, 94, 234, 0.5);
+}
+
+.antd-step[data-type="treasure"] .antd-step-icon {
+    background-color: #fed330;
+    box-shadow: 0 0 15px rgba(254, 211, 48, 0.6);
+}
+
+/* Boss node */
+.antd-step[data-is-boss="true"] .antd-step-icon {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.7);
+    border: 2px solid #c0392b;
+}
+
+/* Game over styling */
+#game-over {
+    background-color: rgba(40, 42, 58, 0.9);
+    padding: 30px;
+    border-radius: 15px;
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 0 30px rgba(125, 58, 240, 0.4);
+    margin-top: 20px;
+}
+
+#game-over button {
+    padding: 15px 30px;
+    font-size: 18px;
+    background: linear-gradient(45deg, var(--primary-color), #5425b3);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    margin-top: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+#game-over button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(45deg, var(--button-hover), #4a1fa0);
+}
+
+/* Item selection styling */
+#item-selection {
+    background-color: rgba(47, 52, 77, 0.9);
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+    border: 1px solid var(--primary-color);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+#item-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.item-option {
+    background: linear-gradient(135deg, rgba(47, 52, 77, 0.9), rgba(30, 30, 46, 0.9));
+    border: 1px solid rgba(125, 58, 240, 0.4);
+    border-radius: 8px;
+    padding: 15px;
+    width: 200px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.item-option:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    border-color: var(--accent-color);
+}
+
+/* Animations */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(125, 58, 240, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(125, 58, 240, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(125, 58, 240, 0);
+    }
+}
+
+@keyframes hpChange {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Rarity colors for items */
+.item-option.common {
+    border-color: #95a5a6;
+}
+
+.item-option.uncommon {
+    border-color: #2ecc71;
+}
+
+.item-option.rare {
+    border-color: #3498db;
+    box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
+}
+
+.item-option.relic {
+    border: 2px solid #e74c3c;
+    background: linear-gradient(135deg, rgba(60, 30, 30, 0.9), rgba(40, 20, 20, 0.9));
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.4);
+}
+
+/* Planned actions styling */
+#planned-actions div, #enemy-actions div {
+    background: linear-gradient(135deg, rgba(47, 52, 77, 0.9), rgba(30, 30, 46, 0.9));
+    border: 1px solid rgba(125, 58, 240, 0.4);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+#planned-actions div:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-color);
+}
+
+/* Action row styling */
+.action-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    background-color: rgba(30, 32, 50, 0.5);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(125, 58, 240, 0.2);
+}
+
+.action-label {
+    font-weight: bold;
+    color: var(--accent-color);
+    margin-right: 15px;
+    min-width: 120px;
+    text-align: right;
+}
+
+#planned-actions, #enemy-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+#planned-actions div, #enemy-actions div {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+#enemy-actions div {
+    background: linear-gradient(135deg, rgba(60, 30, 40, 0.9), rgba(40, 20, 30, 0.9));
+    border-color: rgba(231, 76, 60, 0.4);
+    cursor: not-allowed;
+}
+
+/* Battle log header styling */
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(125, 58, 240, 0.3);
+}
+
+.log-header h3 {
+    margin: 0;
+    color: var(--accent-color);
+    text-shadow: 0 0 5px rgba(0, 210, 211, 0.3);
+}
+
+.clear-log-btn {
+    background: linear-gradient(45deg, #636e72, #2d3436);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clear-log-btn:hover {
+    background: linear-gradient(45deg, #7f8c8d, #34495e);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.enemy-desc {
+    font-size: 14px;
+    font-style: italic;
+    color: #a0aec0;
+    margin-top: 5px;
+    text-align: left;
+    padding: 0 5px;
+}
+
+/* Add subtle bounce animation for RPS buttons */
+#actions button:nth-child(1),
+#actions button:nth-child(2),
+#actions button:nth-child(3) {
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+#actions button:nth-child(1):hover,
+#actions button:nth-child(2):hover,
+#actions button:nth-child(3):hover {
+    transform: translateY(-5px) scale(1.05);
+}
+
+/* Improve inventory display */
+#inventory-container {
+    background-color: rgba(26, 28, 44, 0.6);
+    border-radius: 8px;
+    padding: 10px;
+    grid-column: span 2;
+    margin-top: 5px;
+    border: 1px solid rgba(125, 58, 240, 0.2);
+}
+
+/* Remove the checkmark styles */
+.antd-step-checkmark {
+    display: none;
+} 
