@@ -167,10 +167,18 @@ const RELICS = [
     name: "Double Dragon",
     type: "conditionalModifier",
     appliesTo: "Rock",
-    effect: (dmg) => dmg * 2,
+    effect: (dmg) => {
+      // Ensure we're working with numbers
+      const baseDamage = Number(dmg) || 0;
+      return {
+        finalDamage: baseDamage * 2,
+        isCrit: false, // Not a crit effect
+      };
+    },
     description: "Rock deals double damage when winning",
     condition: "win",
-    triggerMessage: (dmg) => `Rock strikes twice! Dealt ${dmg} damage!`,
+    triggerMessage: (dmg) => `💥 Rock strikes twice! Dealt ${Number(dmg) || 0} damage!`,
+    hasCritEffect: false, // Flag to indicate this doesn't have a crit effect
   },
   {
     name: "Coup De Grace",
@@ -184,8 +192,9 @@ const RELICS = [
     description: "Scissors have 40% chance to do 400% damage when winning",
     condition: "win",
     triggerMessage: (dmg) => {
-      return `Lethal precision! Critical hit for ${dmg} damage!`;
+      return `💥 Lethal precision! Critical hit for ${dmg} damage!`;
     },
+    hasCritEffect: true, // Flag this as having a crit effect
   },
   {
     name: "Vampire Blade",
@@ -196,7 +205,7 @@ const RELICS = [
     condition: "win",
     triggerMessage: (dmg) => {
       const lifestealAmount = Math.floor(dmg * 0.25);
-      return `Vampire Blade absorbs life! Healed for ${lifestealAmount} HP!`;
+      return `🩸 Vampire Blade absorbs life! Healed for ${lifestealAmount} HP!`;
     },
     lifestealPercent: 0.25, // Store the configurable lifesteal percentage
     isLifesteal: true, // Flag to identify this as a lifesteal item
@@ -208,7 +217,7 @@ const RELICS = [
     effect: (dmg) => (Math.random() < 0.5 ? 0 : dmg),
     description: "Paper has 50% chance to nullify damage when losing",
     condition: "lose",
-    triggerMessage: (dmg) => (dmg === 0 ? "Perfect defense! Nullified all damage!" : `Mitigated attack! Took ${dmg} damage.`),
+    triggerMessage: (dmg) => (dmg === 0 ? "🛡️ Perfect defense! Nullified all damage!" : `Mitigated attack! Took ${dmg} damage.`),
   },
   {
     name: "Rock Solid",
@@ -217,7 +226,7 @@ const RELICS = [
     effect: (dmg) => dmg * 0.5,
     description: "Reduces damage by 50% when losing with Rock",
     condition: "lose",
-    triggerMessage: (dmg) => `Rock absorption! Reduced damage to ${dmg}.`,
+    triggerMessage: (dmg) => `🛡️ Rock absorption! Reduced damage to ${dmg}.`,
   },
   {
     name: "Phoenix Feather",
@@ -231,7 +240,7 @@ const RELICS = [
       return false;
     },
     description: "Revive with 50% HP once per battle when defeated",
-    triggerMessage: () => "Phoenix Feather brings you back from defeat!",
+    triggerMessage: () => "🔥 Phoenix Feather brings you back from defeat!",
     consumed: false, // Track if it's been used already
   },
   {
@@ -251,7 +260,7 @@ const RELICS = [
     effect: (baseValue) => baseValue + 10,
     description: "Permanently increases base damage by 10 after each battle",
     appliesTo: "baseDamage",
-    triggerMessage: () => "Training complete! Base damage increased by 10!",
+    triggerMessage: () => "🏋️‍♂️ Training complete! Base damage increased by 10!",
   },
 ];
 
@@ -524,6 +533,7 @@ const SHOP_ITEMS = [
 const EVENTS = [
   {
     name: "Cursed Forge",
+    type: "cursed_forge",
     description: "A mysterious forge emanates an eerie glow. Do you want to sacrifice 15 HP to empower your Rock attacks?",
     choices: [
       {
@@ -554,6 +564,7 @@ const EVENTS = [
   },
   {
     name: "Mysterious Trader",
+    type: "mysterious_trader",
     description: "A hooded figure offers you a choice: sacrifice some of your maximum HP for an immediate advantage.",
     choices: [
       {
@@ -593,6 +604,7 @@ const EVENTS = [
   },
   {
     name: "Healing Spring",
+    type: "healing_spring",
     description: "You discover a spring with glowing water. It seems to have healing properties.",
     choices: [
       {

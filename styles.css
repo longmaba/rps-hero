@@ -630,6 +630,20 @@ h1 {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+.item-effect.special-relic {
+    font-size: 18px;
+    font-weight: bold;
+    background-color: rgba(241, 196, 15, 0.2);
+    border-left: 4px solid #f1c40f;
+    animation: relicShine 3s infinite;
+}
+
+@keyframes relicShine {
+    0% { background-color: rgba(241, 196, 15, 0.2); }
+    50% { background-color: rgba(241, 196, 15, 0.4); }
+    100% { background-color: rgba(241, 196, 15, 0.2); }
+}
+
 /* Styling for relic items to make them look special */
 .item-option.relic {
     background-color: #2c3e50;
@@ -702,14 +716,8 @@ h1 {
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* Enemy actions styling */
@@ -883,42 +891,63 @@ h1 {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* Event image container */
+/* Event image styling */
 .event-image-container {
-    margin: 20px auto;
-    width: 300px;
-    height: 200px;
+    margin: 30px auto;
+    width: 500px;
+    height: 500px;
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
     position: relative;
-    background-size: cover;
-    background-position: center;
+    background-color: #000;
 }
 
-/* Different event image backgrounds */
+/* Event type-specific background images */
 .event-image-container[data-event="cursed_forge"] {
-    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), 
-                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%23321" /><path d="M120,160 Q150,80 180,160" stroke="%23731" fill="none" stroke-width="10" /><path d="M150,170 L150,100" stroke="%23a52" fill="none" stroke-width="5" /><ellipse cx="150" cy="90" rx="25" ry="15" fill="%23f84" /><path d="M137,80 Q150,50 163,80" stroke="%23f84" fill="%23f62" stroke-width="2" /><path d="M140,75 Q150,55 160,75" stroke="%23fa5" fill="%23f84" stroke-width="2" /><path d="M145,70 Q150,60 155,70" stroke="%23fd7" fill="%23fa5" stroke-width="2" /></svg>');
+    background: url('assets/events/cursed-forge.jpeg');
+    background-size: cover;
+    background-position: center;
     box-shadow: 0 8px 16px rgba(255, 100, 0, 0.3);
 }
 
 .event-image-container[data-event="mysterious_trader"] {
-    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), 
-                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%23123" /><path d="M120,160 L150,80 L180,160 Z" fill="%23235" stroke="%23346" stroke-width="2" /><circle cx="150" cy="100" r="20" fill="%23235" /><circle cx="140" cy="95" r="3" fill="%23ddd" stroke="%23fff" stroke-width="1" /><circle cx="160" cy="95" r="3" fill="%23ddd" stroke="%23fff" stroke-width="1" /><path d="M115,160 Q100,120 115,80 L80,80 L80,165 Z" fill="%23235" /><path d="M185,160 Q200,120 185,80 L220,80 L220,165 Z" fill="%23235" /><path d="M130,140 L170,140" stroke="%23888" fill="none" stroke-width="2" /></svg>');
-    box-shadow: 0 8px 16px rgba(0, 100, 255, 0.3);
+    background: url('assets/events/mysterious-trader.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #000;
+    box-shadow: 0 8px 16px rgba(100, 100, 255, 0.3);
 }
 
 .event-image-container[data-event="healing_spring"] {
-    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), 
-                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%23152" /><ellipse cx="150" cy="150" rx="70" ry="25" fill="%2369f" /><path d="M100,140 Q150,100 200,140" stroke="%2379f" fill="none" stroke-width="3" /><path d="M110,130 Q150,100 190,130" stroke="%2389f" fill="none" stroke-width="2" /><path d="M120,120 Q150,100 180,120" stroke="%299f" fill="none" stroke-width="2" /><circle cx="130" cy="125" r="2" fill="%23fff" /><circle cx="160" cy="135" r="3" fill="%23fff" /><circle cx="140" cy="145" r="2" fill="%23fff" /><circle cx="170" cy="125" r="2" fill="%23fff" /><path d="M140,90 Q150,80 160,90 L156,100 Q150,95 144,100 Z" fill="%2369f" /></svg>');
-    box-shadow: 0 8px 16px rgba(100, 200, 255, 0.3);
+    background: url('assets/events/healing-spring.jpeg');
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 8px 16px rgba(46, 204, 113, 0.3);
 }
 
-/* Event Title Enhancement */
+/* Remove glow effects for event images */
+.event-image-container::after {
+    display: none;
+}
+
+.event-image-container[data-event="cursed_forge"]::after {
+    display: none;
+}
+
+.event-image-container[data-event="mysterious_trader"]::after {
+    display: none;
+}
+
+.event-image-container[data-event="healing_spring"]::after {
+    display: none;
+}
+
+/* Event style overrides */
 #item-selection[data-context="event"] #item-selection-heading {
-    color: #f39c12;
-    text-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+    color: #e67e22;
+    text-shadow: 0 0 10px rgba(230, 126, 34, 0.5);
     font-size: 28px;
     margin-bottom: 5px;
 }
@@ -926,7 +955,7 @@ h1 {
 #item-selection[data-context="event"] #item-selection-message {
     font-size: 18px;
     margin-bottom: 20px;
-    background-color: rgba(52, 73, 94, 0.5);
+    background-color: rgba(230, 126, 34, 0.1);
     padding: 10px;
     border-radius: 8px;
     max-width: 80%;
@@ -934,36 +963,50 @@ h1 {
     margin-right: auto;
 }
 
-/* Event choices container */
-#item-options.event-choices {
+.event-options {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    margin-top: 15px;
+    gap: 15px;
+    width: 90%;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
-/* Glow effect for event images */
-.event-image-container::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.3);
-    border-radius: 10px;
+.event-choice {
+    background-color: rgba(52, 73, 94, 0.7);
+    border: 1px solid #2c3e50;
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 16px;
 }
 
-.event-image-container[data-event="cursed_forge"]::after {
-    box-shadow: inset 0 0 30px rgba(255, 100, 0, 0.5);
+.event-choice:hover {
+    background-color: rgba(52, 73, 94, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-.event-image-container[data-event="mysterious_trader"]::after {
-    box-shadow: inset 0 0 30px rgba(100, 100, 255, 0.5);
+.event-result {
+    background-color: rgba(39, 174, 96, 0.2);
+    border: 1px solid #27ae60;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px auto;
+    font-size: 18px;
+    text-align: center;
+    animation: fadeIn 0.5s ease-in-out;
 }
 
-.event-image-container[data-event="healing_spring"]::after {
-    box-shadow: inset 0 0 30px rgba(100, 200, 255, 0.5);
+.fade-out {
+    opacity: 0;
+    transition: opacity 1s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* Node types styling */
@@ -1305,4 +1348,43 @@ h1 {
     margin: 5px 0;
     padding: 4px;
     border-radius: 5px;
+}
+
+/* Rest site image styling */
+.rest-site-image {
+    margin: 30px auto;
+    width: 500px;
+    height: 350px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: none !important;
+    position: relative;
+    background: url('assets/events/rest-site.png');
+    background-size: cover;
+    background-position: center;
+    background-color: #000;
+}
+
+/* Remove glow effect for rest site */
+.rest-site-image::after {
+    display: none;
+}
+
+/* Style the rest site context */
+#item-selection[data-context="rest"] #item-selection-heading {
+    color: #2ecc71;
+    text-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+    font-size: 28px;
+    margin-bottom: 5px;
+}
+
+#item-selection[data-context="rest"] #item-selection-message {
+    font-size: 18px;
+    margin-bottom: 20px;
+    background-color: rgba(46, 204, 113, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: auto;
 } 
