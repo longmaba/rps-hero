@@ -11,13 +11,9 @@
     <div id="game-container">
         <h1>🎮 RPS Roguelike Adventure 🎮</h1>
         <div id="run-map">
-            <div class="progress-container">
-                <div class="progress-text">
-                    <span id="level-indicator">0</span>/20 - <span id="run-progress">Start your journey</span>
-                </div>
-                <div class="progress-bar" title="Special events occur at battles 5, 10, and 15">
-                    <div id="progress-fill" class="progress-fill"></div>
-                </div>
+            <h2>Adventure Map</h2>
+            <div id="node-map-container">
+                <!-- Nodes will be generated here by JavaScript -->
             </div>
         </div>
         <div id="status">
@@ -36,9 +32,9 @@
                 </div>
                 <p id="enemy-description" class="enemy-desc"></p>
             </div>
-            <p>🗺️ Progress: <span id="run-progress">Battle 1</span> | 🔄 Round: <span id="round-number">1</span></p>
-            <div id="currency-container">
-                <p>💰 Coins: <span id="player-currency">0</span></p>
+            <p>💰 Coins: <span id="player-currency">0</span> | 🔄 Round: <span id="round-number">1</span></p>
+            <div id="currency-container" class="hidden">
+                <!-- Currency display now moved to the line above -->
             </div>
             <div id="inventory-container">
                 <p>🎒 Inventory: <span id="inventory">None</span></p>
@@ -47,7 +43,7 @@
                 <!-- Debuff info will be inserted here by JavaScript -->
             </div>
         </div>
-        <div id="battle-screen">
+        <div id="battle-screen" class="hidden">
             <h2>Choose Your Moves</h2>
             <div id="enemy-planned-actions" class="action-row">
                 <div class="action-label">Enemy Moves:</div>
@@ -63,6 +59,10 @@
                 <button onclick="addAction('Scissors')" aria-label="Select Scissors">✌️</button>
                 <button onclick="clearAllActions()">🗑️ Clear All</button>
                 <button onclick="resolveRound()" id="resolve-btn" disabled>⚔️ Fight!</button>
+            </div>
+            <div class="log-header">
+                <h3>Battle Log</h3>
+                <button onclick="clearBattleLog()" class="clear-log-btn">🗑️ Clear Log</button>
             </div>
             <div id="resolution-log"></div>
         </div>

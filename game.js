@@ -1,3 +1,10 @@
+// Add this near the top with other constants
+const emojiMap = {
+  Rock: "✊",
+  Paper: "✋",
+  Scissors: "✌️",
+};
+
 // Game state
 let gameState = {
   player: {
@@ -24,12 +31,50 @@ let gameState = {
     damageIncreasePerBattle: GAME_CONFIG.enemyScaling.damageIncreasePerBattle,
   },
   usedReviveItem: false, // Track if a revival item has been used in the current battle
+  map: [], // Will store the generated map with nodes
+  currentNodeIndex: 0, // Current position on the map
+  availableNodeChoices: [], // Available nodes to choose from
+  playerAllActions: [], // Track all player actions for elite enemy AI
+  temporaryItems: [], // Items that are only active for a specific duration
+  burnEffects: [], // Track any burn effects applied to enemies
 };
 
-// Initialize game
-function initBattle() {
+// Wait for the DOM to be fully loaded
+document.addEventListener("DOMContentLoaded", function () {
+  // Start with relic selection
+  showItemSelection("start");
+});
+
+// Function to initialize a battle
+function initBattle(isEliteBattle = false) {
   gameState.runProgress++;
   gameState.currentRound = 1; // Reset round for each battle
+
+  // Add a separator in the battle log for a new battle
+  const log = document.getElementById("resolution-log");
+  if (log) {
+    const battleSeparator = document.createElement("div");
+    battleSeparator.className = "battle-separator";
+
+    // Show which battle number this is
+    const battleNumber = gameState.runProgress;
+    let battleType = "Normal";
+
+    if (isEliteBattle) {
+      battleType = "Elite";
+    } else if (gameState.runProgress === gameState.maxBattles) {
+      battleType = "Boss";
+    }
+
+    const battleMarker = document.createElement("p");
+    battleMarker.className = "battle-marker";
+    battleMarker.setAttribute("data-battle-type", battleType);
+    battleMarker.textContent = `⚔️ Battle #${battleNumber} (${battleType}) ⚔️`;
+
+    battleSeparator.appendChild(battleMarker);
+    log.appendChild(battleSeparator);
+    log.scrollTop = log.scrollHeight;
+  }
 
   // Reset the used revival item flag for the new battle
   gameState.usedReviveItem = false;
@@ -41,17 +86,30 @@ function initBattle() {
     }
   });
 
-  // Select enemy type: Boss on final battle, otherwise Basic
-  let enemyTypeIndex = 0; // Default to Basic (index 0)
+  // Process any burn effects before starting a new battle
+  gameState.burnEffects = [];
 
-  if (gameState.runProgress === gameState.maxBattles) {
+  // Select enemy type based on node type
+  let enemyTypeIndex = 0; // Default to Basic (index 0)
+  let enemyType;
+
+  const currentNode = gameState.map[gameState.currentNodeIndex];
+
+  if (currentNode && currentNode.type === NODE_TYPES.ELITE.id) {
+    // Select a random elite enemy
+    const eliteEnemies = ENEMY_TYPES.filter((enemy) => enemy.isElite);
+    enemyType = eliteEnemies[Math.floor(Math.random() * eliteEnemies.length)];
+  } else if (gameState.runProgress === gameState.maxBattles || (currentNode && currentNode.isBoss)) {
     enemyTypeIndex = 2; // Boss type (index 2)
+    enemyType = ENEMY_TYPES[enemyTypeIndex];
+  } else {
+    // Regular enemy - either Basic or Mimic
+    enemyTypeIndex = Math.random() < 0.5 ? 0 : 1; // 50% chance for each
+    enemyType = ENEMY_TYPES[enemyTypeIndex];
   }
 
-  const enemyType = ENEMY_TYPES[enemyTypeIndex];
-
   // Calculate scaled HP based on runProgress
-  const scaledHp = enemyType.maxHp + (gameState.runProgress - 1) * gameState.enemyScaling.hpIncreasePerBattle;
+  const scaledHp = Math.floor(enemyType.maxHp + (gameState.runProgress - 1) * gameState.enemyScaling.hpIncreasePerBattle);
 
   gameState.enemy = {
     hp: scaledHp,
@@ -59,40 +117,47 @@ function initBattle() {
     type: enemyType, // Store the enemy type object
     actions: enemyType.getActions(gameState), // Set actions for the first round
   };
+
+  // Clear all planned actions
   gameState.player.plannedActions = [];
 
-  // Reset active debuff from previous battle
-  gameState.activeDebuff = null;
-
-  // Explicitly clear the debuff container to ensure it's not displayed
-  const debuffContainer = document.getElementById("debuff-container");
-  if (debuffContainer) {
-    debuffContainer.classList.add("hidden");
-    debuffContainer.innerHTML = "";
-  }
-
-  // Reset any disabled buttons
-  document.querySelectorAll("#actions button").forEach((button) => {
-    button.classList.remove("disabled-by-debuff");
-    button.title = "";
-  });
-
-  // Random chance to apply a debuff
-  if (Math.random() < GAME_CONFIG.debuffChance) {
-    // Select a random debuff
-    const randomDebuff = DEBUFFS[Math.floor(Math.random() * DEBUFFS.length)];
-    gameState.activeDebuff = randomDebuff;
-
-    // Apply the debuff effect
-    if (gameState.activeDebuff.applyEffect) {
-      gameState.activeDebuff.applyEffect(gameState);
-    }
-
-    // Show debuff notification
-    showDebuffNotification(randomDebuff);
-  }
-
+  // Update the UI to reflect the new battle
+  updateEnemyDisplay();
   updateUI();
+
+  // Randomly apply a debuff with a certain chance
+  if (Math.random() < GAME_CONFIG.debuffChance && !gameState.activeDebuff) {
+    const availableDebuffs = DEBUFFS.filter((debuff) => !gameState.player.inventory.some((item) => item.name === "Lucky Charm"));
+    if (availableDebuffs.length > 0) {
+      const randomDebuff = availableDebuffs[Math.floor(Math.random() * availableDebuffs.length)];
+      gameState.activeDebuff = { ...randomDebuff };
+
+      // Apply the debuff effect
+      if (gameState.activeDebuff.applyEffect) {
+        gameState.activeDebuff.applyEffect(gameState);
+      }
+
+      // Show notification for the new debuff
+      showDebuffNotification(randomDebuff);
+    }
+  }
+
+  // Setup debuff display
+  setupDebuffDisplay();
+
+  // Check for action replacers (debuffs that replace allowed moves)
+  applyActionReplacerEffects();
+
+  // Update enemy HP display
+  updateHP("enemy", gameState.enemy.hp);
+
+  // Handle any temporary items
+  processTemporaryItems();
+
+  // Update enemy actions display after a short delay
+  setTimeout(() => {
+    updateEnemyActionsDisplay();
+  }, 500);
 }
 
 // Show a notification when a debuff is applied
@@ -108,265 +173,490 @@ function showDebuffNotification(debuff) {
   }
 }
 
+// Function to resolve a round of battle
 function resolveRound() {
-  const log = document.getElementById("resolution-log");
-  log.innerHTML = ""; // Clear the log at the start of a new round
-  document.getElementById("resolve-btn").disabled = true;
+  const playerActions = [...gameState.player.plannedActions];
+  const enemyActions = [...gameState.enemy.actions];
 
-  // Apply debuff round effects if there's an active debuff
+  // Store player's actions for this round (for mimic enemies)
+  gameState.playerLastRoundActions = [...playerActions];
+
+  // Store all player actions for elite enemy AI
+  if (!gameState.playerAllActions) {
+    gameState.playerAllActions = [];
+  }
+  gameState.playerAllActions = gameState.playerAllActions.concat(playerActions);
+
+  // Clear planned actions for both player and enemy
+  gameState.player.plannedActions = [];
+
+  // Apply any round-based debuff effects
   if (gameState.activeDebuff && gameState.activeDebuff.roundEffect) {
     gameState.activeDebuff.roundEffect(gameState);
   }
 
-  // Apply action replacer effects (like Mirror Amulet)
-  applyActionReplacerEffects();
+  // Process any burn effects
+  if (gameState.burnEffects && gameState.burnEffects.length > 0) {
+    // Apply burn damage to the enemy
+    gameState.burnEffects.forEach((burnEffect, index) => {
+      const burnDamage = burnEffect.damage;
+      gameState.enemy.hp = Math.max(0, gameState.enemy.hp - burnDamage);
 
-  let delay = 0;
-  let battleEnded = false; // Flag to track if battle has ended early
+      // Log the burn effect
+      const log = document.getElementById("resolution-log");
+      const burnMsg = document.createElement("p");
+      burnMsg.className = "burn-effect";
+      burnMsg.textContent = `🔥 Burn effect deals ${burnDamage} damage!`;
+      log.appendChild(burnMsg);
 
-  for (let i = 0; i < 5; i++) {
-    setTimeout(() => {
-      // Skip if battle already ended
-      if (battleEnded) return;
+      // Reduce burn duration
+      burnEffect.duration--;
 
-      const playerAction = gameState.player.plannedActions[i];
-      const enemyAction = gameState.enemy.actions[i];
-      let playerDmg = GAME_CONFIG.baseDamage;
+      // Remove expired burn effects
+      if (burnEffect.duration <= 0) {
+        gameState.burnEffects.splice(index, 1);
+      }
+    });
 
-      // Calculate scaled enemy damage based on runProgress
-      let enemyDmg = gameState.enemyScaling.baseDamage + (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
+    // Update enemy HP display
+    updateHP("enemy", gameState.enemy.hp);
 
-      // Reveal enemy action
-      const enemyActionElem = document.querySelector(`#enemy-actions div[data-index="${i}"]`);
-      enemyActionElem.textContent = emojiMap[enemyAction];
-      enemyActionElem.classList.remove("hidden-action");
-      enemyActionElem.classList.add("revealed-action");
+    // Check if enemy died from burn damage
+    if (gameState.enemy.hp <= 0) {
+      handleVictory();
+      return;
+    }
+  }
 
-      // Apply base item effects
-      gameState.player.inventory.forEach((item) => {
-        if (item.type === "actionModifier" && item.appliesTo === playerAction) {
-          playerDmg = item.effect(playerDmg);
-        }
-      });
+  // Disable resolve button during resolution
+  document.getElementById("resolve-btn").disabled = true;
 
-      // Determine winner
-      let result = "";
+  // Get the log container
+  const log = document.getElementById("resolution-log");
+
+  // Add a round separator instead of clearing
+  const roundSeparator = document.createElement("div");
+  roundSeparator.className = "round-separator";
+  roundSeparator.innerHTML = `<p class="round-marker">🔄 Round ${gameState.currentRound} 🔄</p>`;
+  log.appendChild(roundSeparator);
+  log.scrollTop = log.scrollHeight;
+
+  // Compare actions one by one with a delay
+  let currentIndex = 0;
+  let roundDamageToEnemy = 0;
+  let roundDamageToPlayer = 0;
+
+  // Elite Double Trouble ability
+  const isDoubleTrouble = gameState.enemy.type.type === "Double Trouble";
+
+  function compareNextAction() {
+    if (currentIndex < playerActions.length) {
+      const playerAction = playerActions[currentIndex];
+      const enemyAction = enemyActions[currentIndex];
+
+      // Reveal this enemy move with animation
+      const enemyActionElement = document.querySelector(`#enemy-actions [data-index="${currentIndex}"]`);
+      if (enemyActionElement) {
+        enemyActionElement.textContent = emojiMap[enemyAction];
+        enemyActionElement.classList.remove("hidden-action");
+        enemyActionElement.classList.add("flip-in");
+      }
+
+      // Add to player's all actions record
+      if (!gameState.playerAllActions) {
+        gameState.playerAllActions = [];
+      }
+      gameState.playerAllActions.push(playerAction);
+
+      // Create a result element for this comparison
+      const resultElem = document.createElement("p");
+
+      // Determine outcome
+      let result;
+      let damage = 0;
+      let playerWins = false;
+      let enemyWins = false;
+
       if (playerAction === enemyAction) {
         result = "Tie!";
+        resultElem.className = "tie";
       } else if (
         (playerAction === "Rock" && enemyAction === "Scissors") ||
-        (playerAction === "Scissors" && enemyAction === "Paper") ||
-        (playerAction === "Paper" && enemyAction === "Rock")
+        (playerAction === "Paper" && enemyAction === "Rock") ||
+        (playerAction === "Scissors" && enemyAction === "Paper")
       ) {
-        // Player wins - apply conditional win modifiers
-        gameState.player.inventory.forEach((item) => {
-          if (item.type === "conditionalModifier" && (item.appliesTo === playerAction || item.appliesTo === "All") && item.condition === "win") {
-            const oldDamage = playerDmg;
-            playerDmg = item.effect(playerDmg);
+        result = "You win!";
+        resultElem.className = "player-win";
+        playerWins = true;
 
-            // Log item effect if damage was modified, but skip lifesteal items for now
-            if (playerDmg !== oldDamage && item.triggerMessage && !item.isLifesteal) {
-              logItemEffect(item.triggerMessage(playerDmg), item.type);
+        // Calculate base damage
+        damage = GAME_CONFIG.baseDamage;
+
+        // Apply scaling based on battle number
+        damage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
+
+        // Apply any item effects for winning (CONDITIONAL RELIC EFFECTS)
+        gameState.player.inventory.forEach((item) => {
+          if (item.type === "conditionalModifier" && item.condition === "win") {
+            if (item.appliesTo === playerAction) {
+              const effectResult = item.effect(damage, gameState); // Get the result object
+              damage = effectResult.finalDamage; // Use finalDamage from result
+              if (item.triggerMessage && effectResult.isCrit) {
+                // Check effectResult.isCrit before showing message
+                const effectElem = document.createElement("p");
+                effectElem.className = "item-effect special-relic";
+                effectElem.textContent = item.triggerMessage(damage);
+                log.appendChild(effectElem);
+              }
+            } else if (item.appliesTo === "All") {
+              // Handle "All" type relics if needed (like Vampire Blade - though it might be better handled elsewhere)
+              if (item.effect) {
+                damage = item.effect(damage, gameState); // Apply effect even if not action-specific
+              }
+              if (item.triggerMessage) {
+                const effectElem = document.createElement("p");
+                effectElem.className = "item-effect special-relic";
+                effectElem.textContent = item.triggerMessage(damage);
+                log.appendChild(effectElem);
+              }
             }
           }
         });
 
-        // Apply enemy damage first
-        gameState.enemy.hp -= playerDmg;
-
-        // Now apply lifesteal effects after all damage calculations are complete
+        // Apply any item effects for winning (ACTION MODIFIERS - existing code)
         gameState.player.inventory.forEach((item) => {
-          if (item.isLifesteal && (item.appliesTo === playerAction || item.appliesTo === "All") && item.condition === "win") {
-            // Calculate lifesteal based on the final damage value
-            const lifestealAmount = Math.floor(playerDmg * item.lifestealPercent);
+          if (item.type === "actionModifier" && item.appliesTo === playerAction) {
+            damage = item.effect(damage);
 
-            // Apply healing
-            const oldHp = gameState.player.hp;
-            gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + lifestealAmount);
-            const actualHeal = gameState.player.hp - oldHp;
+            // Check for burn effects
+            if (item.applyBurn) {
+              gameState.burnEffects.push({
+                damage: item.burnDamage,
+                duration: item.burnDuration,
+              });
 
-            // Update UI
-            updateHP("player", gameState.player.hp);
+              // Log the burn application
+              const burnMsg = document.createElement("p");
+              burnMsg.className = "burn-applied";
+              burnMsg.textContent = `🔥 ${item.name} applied burn effect for ${item.burnDuration} rounds!`;
+              log.appendChild(burnMsg);
+            }
+          }
+        });
 
-            // Log the lifesteal effect
+        // Also apply temporary items (existing code)
+        gameState.temporaryItems.forEach((item) => {
+          if (item.type === "actionModifier" && item.appliesTo === playerAction) {
+            damage = item.effect(damage);
+          }
+        });
+
+        // Apply the damage to the enemy (existing code)
+        gameState.enemy.hp = Math.max(0, gameState.enemy.hp - damage);
+        roundDamageToEnemy += damage;
+
+        // Update enemy HP display (existing code)
+        updateHP("enemy", gameState.enemy.hp);
+      } else {
+        result = "Enemy wins!";
+        resultElem.className = "enemy-win";
+        enemyWins = true;
+
+        // Calculate enemy damage based on round progression
+        damage = GAME_CONFIG.baseDamage;
+
+        // Apply scaling based on battle number
+        damage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
+
+        // Apply elite bonus damage if applicable
+        if (gameState.enemy.type.isElite) {
+          damage = Math.floor(damage * 1.2);
+        }
+
+        // Apply any defensive item effects
+        let originalDamage = damage;
+        gameState.player.inventory.forEach((item) => {
+          if (item.type === "conditionalModifier" && item.condition === "lose" && (item.appliesTo === "All" || item.appliesTo === playerAction)) {
+            damage = item.effect(damage, gameState);
+
+            // Show trigger message if provided
             if (item.triggerMessage) {
-              logItemEffect(item.triggerMessage(playerDmg), item.type);
+              const effectElem = document.createElement("p");
+              effectElem.className = "item-effect";
+              effectElem.textContent = item.triggerMessage(originalDamage);
+              log.appendChild(effectElem);
             }
           }
         });
 
-        result = `Player wins! ${getEnemyName()} takes ${playerDmg} damage.`;
-        animateHPChange("enemy");
-      } else {
-        // Enemy wins - apply conditional lose modifiers
-        gameState.player.inventory.forEach((item) => {
-          if (item.type === "conditionalModifier" && (item.appliesTo === playerAction || item.appliesTo === "All") && item.condition === "lose") {
-            const oldDamage = enemyDmg;
-            enemyDmg = item.effect(enemyDmg);
+        // Check if player has dodge
+        if (gameState.player.dodgeNextAttack) {
+          damage = 0;
+          gameState.player.dodgeNextAttack = false;
 
-            // Log item effect if damage was modified
-            if (enemyDmg !== oldDamage && item.triggerMessage) {
-              logItemEffect(item.triggerMessage(enemyDmg), item.type);
-            }
-          }
-        });
+          // Show dodge message
+          const dodgeMsg = document.createElement("p");
+          dodgeMsg.className = "dodge-effect";
+          dodgeMsg.textContent = "💨 Attack dodged!";
+          log.appendChild(dodgeMsg);
+        }
 
-        gameState.player.hp -= enemyDmg;
-        result = `${getEnemyName()} wins! Player takes ${enemyDmg} damage.`;
-        animateHPChange("player");
+        // Apply the damage to the player
+        gameState.player.hp = Math.max(0, gameState.player.hp - damage);
+        roundDamageToPlayer += damage;
+
+        // Update player HP display
+        updateHP("player", gameState.player.hp);
       }
 
-      // Update the HP bars immediately after damage
-      updateHP("player", Math.max(0, gameState.player.hp));
-      updateHP("enemy", Math.max(0, gameState.enemy.hp));
-
-      let resultClass = "";
-      if (result.includes("Player wins")) {
-        resultClass = "player-win";
-      } else if (result.includes("wins! Player takes")) {
-        resultClass = "enemy-win";
-      } else {
-        resultClass = "tie";
-      }
-
-      // Create a new paragraph element for the result - ONLY showing the result line
-      const resultElem = document.createElement("p");
-      resultElem.className = resultClass;
+      // Display the result
       resultElem.innerHTML = `Player: ${emojiMap[playerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}`;
+      if (damage > 0) {
+        resultElem.innerHTML += ` (${damage} damage)`;
+      }
       log.appendChild(resultElem);
-
-      // Scroll to the bottom of the log
       log.scrollTop = log.scrollHeight;
 
-      // Check if battle should end early
-      if (gameState.player.hp <= 0 || gameState.enemy.hp <= 0) {
-        if (gameState.player.hp <= 0) {
-          // Check for revival items like Phoenix Feather
+      // For Double Trouble elite, process the action twice
+      if (isDoubleTrouble && playerWins) {
+        // Apply damage a second time
+        gameState.enemy.hp = Math.max(0, gameState.enemy.hp - damage);
+        roundDamageToEnemy += damage;
+
+        // Log the double effect
+        const doubleElem = document.createElement("p");
+        doubleElem.className = "elite-effect";
+        doubleElem.textContent = `⚡ Double Trouble resolves move twice! Additional ${damage} damage!`;
+        log.appendChild(doubleElem);
+
+        // Update enemy HP display
+        updateHP("enemy", gameState.enemy.hp);
+      } else if (isDoubleTrouble && enemyWins) {
+        // Apply damage a second time
+        gameState.player.hp = Math.max(0, gameState.player.hp - damage);
+        roundDamageToPlayer += damage;
+
+        // Log the double effect
+        const doubleElem = document.createElement("p");
+        doubleElem.className = "elite-effect";
+        doubleElem.textContent = `⚡ Double Trouble resolves move twice! Additional ${damage} damage!`;
+        log.appendChild(doubleElem);
+
+        // Update player HP display
+        updateHP("player", gameState.player.hp);
+      }
+
+      // Move to the next action after a delay
+      currentIndex++;
+      setTimeout(() => {
+        // Check for game over after each action
+        if (gameState.enemy.hp <= 0) {
+          // Handle enemy defeat
+          handleVictory();
+          return;
+        } else if (gameState.player.hp <= 0) {
+          // Check if player has a revival item like Phoenix Feather
           const reviveItem = gameState.player.inventory.find((item) => item.type === "defensive" && !item.consumed);
 
           if (reviveItem && !gameState.usedReviveItem) {
-            // Try to use the revival item
             const revived = reviveItem.effect(gameState);
-
             if (revived) {
-              // Mark the item as consumed for this battle
               reviveItem.consumed = true;
               gameState.usedReviveItem = true;
 
-              // Log the revival
-              const reviveMsg = document.createElement("p");
-              reviveMsg.className = "item-effect revival";
-              reviveMsg.textContent = `✨ ${reviveItem.triggerMessage()}`;
-              log.appendChild(reviveMsg);
-              log.scrollTop = log.scrollHeight;
+              // Log revival effect
+              const reviveElem = document.createElement("p");
+              reviveElem.className = "item-effect revival";
+              reviveElem.textContent = reviveItem.triggerMessage();
+              log.appendChild(reviveElem);
 
-              // Update HP display
+              // Update player HP display
               updateHP("player", gameState.player.hp);
 
-              // Continue with the battle without ending it
-              return;
-            }
-          }
+              // Add animation class
+              document.getElementById("player-hp-bar").parentElement.classList.add("player-revival");
+              setTimeout(() => {
+                document.getElementById("player-hp-bar").parentElement.classList.remove("player-revival");
+              }, 1500);
 
-          // Player was defeated (and not revived)
-          const defeatMsg = document.createElement("p");
-          defeatMsg.className = "enemy-win victory-message";
-          defeatMsg.textContent = "You have been defeated!";
-          log.appendChild(defeatMsg);
-          log.scrollTop = log.scrollHeight;
-
-          battleEnded = true;
-
-          // Add delay to show enemy moves before game over screen
-          setTimeout(async () => {
-            // Clear enemy moves with animation
-            await clearEnemyMovesWithAnimation();
-            endGame("You have been defeated!");
-          }, 1500);
-        } else {
-          // Enemy was defeated
-          battleEnded = true;
-
-          // Store the player's actions from this round
-          gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
-
-          if (gameState.runProgress === gameState.maxBattles) {
-            // Award bonus coins for completing all battles
-            const bonusCoins = 500;
-            gameState.player.coins += bonusCoins;
-
-            const victoryMsg = document.createElement("p");
-            victoryMsg.className = "player-win victory-message";
-            victoryMsg.textContent = "You completed all 20 levels!";
-            log.appendChild(victoryMsg);
-
-            const coinsMsg = document.createElement("p");
-            coinsMsg.className = "coin-effect";
-            coinsMsg.textContent = `💰 BONUS COINS: +${bonusCoins} (Total: ${gameState.player.coins})`;
-            log.appendChild(coinsMsg);
-
-            log.scrollTop = log.scrollHeight;
-
-            // Add delay to show enemy moves before game over screen
-            setTimeout(async () => {
-              // Clear enemy moves with animation
-              await clearEnemyMovesWithAnimation();
-              endGame("Congratulations! You completed all 20 levels!");
-            }, 1500);
-          } else {
-            // Normal enemy defeated - show victory message
-            const victoryElem = document.createElement("p");
-            victoryElem.className = "player-win victory-message";
-
-            // Check if this is a special event battle (every 5th battle)
-            if (gameState.runProgress % 5 === 0) {
-              victoryElem.innerHTML = "Victory! Special reward available!";
+              // Continue to next action
+              compareNextAction();
             } else {
-              victoryElem.innerHTML = "Victory! Choose your reward item!";
+              handleDefeat();
             }
-
-            log.appendChild(victoryElem);
-
-            // Scroll to the bottom of the log
-            log.scrollTop = log.scrollHeight;
-
-            // Add delay to show enemy moves before item selection
-            setTimeout(async () => {
-              // Clear enemy moves with animation
-              await clearEnemyMovesWithAnimation();
-
-              // Check if this is a special event battle (every 5th battle)
-              if (gameState.runProgress % 5 === 0) {
-                showSpecialEvent();
-              } else {
-                // Regular item selection for normal battles
-                showItemSelection("victory");
-              }
-            }, 2000);
+          } else {
+            handleDefeat();
           }
+          return;
+        } else {
+          compareNextAction();
         }
-      } else if (i === 4) {
-        // This was the last action and nobody died
-        setTimeout(async () => {
-          // Store the player's actions from this round
-          gameState.playerLastRoundActions = gameState.player.plannedActions.slice();
+      }, GAME_CONFIG.battleDelay);
+    } else {
+      // All actions resolved, prepare for the next round
+      finishRound();
+    }
+  }
 
-          // Pause to show completed enemy moves for this round
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Start comparing actions
+  compareNextAction();
 
-          // Clear enemy moves with animation before starting next round
-          await clearEnemyMovesWithAnimation();
+  function finishRound() {
+    // Increment round counter
+    gameState.currentRound++;
+    document.getElementById("round-number").textContent = gameState.currentRound;
 
-          // Next round
-          gameState.currentRound++;
-          gameState.player.plannedActions = []; // Clear player actions
-          // Generate new enemy actions for the next round
-          gameState.enemy.actions = gameState.enemy.type.getActions(gameState);
-          updateUI();
-        }, 500);
+    // Get new actions for the enemy
+    gameState.enemy.actions = gameState.enemy.type.getActions(gameState);
+
+    // Re-enable the action buttons
+    document.querySelectorAll("#actions button").forEach((btn) => {
+      if (!btn.classList.contains("disabled-by-debuff")) {
+        btn.disabled = false;
       }
-    }, delay);
-    delay += GAME_CONFIG.battleDelay;
+    });
+
+    // Apply the vampire lifesteal effect if applicable
+    gameState.player.inventory.forEach((item) => {
+      if (item.isLifesteal && roundDamageToEnemy > 0) {
+        const healAmount = Math.floor(roundDamageToEnemy * item.lifestealPercent);
+        gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + healAmount);
+
+        // Show lifesteal message
+        const lifestealMsg = document.createElement("p");
+        lifestealMsg.className = "heal-effect";
+        lifestealMsg.textContent = `💉 ${item.name} heals you for ${healAmount} HP!`;
+        log.appendChild(lifestealMsg);
+
+        // Update player HP display
+        updateHP("player", gameState.player.hp);
+      }
+    });
+
+    // Delay before clearing and recreating enemy moves
+    setTimeout(() => {
+      // Clear enemy moves with animation
+      const enemyActions = document.getElementById("enemy-actions");
+
+      // Add flip-out animation to all actions
+      Array.from(enemyActions.children).forEach((actionDiv, index) => {
+        actionDiv.classList.add("flip-out");
+      });
+
+      // Clear and recreate actions after animation completes
+      setTimeout(() => {
+        // Clear the element before updating
+        enemyActions.innerHTML = "";
+
+        // Reset enemy actions display with new actions
+        updateEnemyActionsDisplay();
+
+        // Add flip-in effect to the new action boxes
+        setTimeout(() => {
+          Array.from(enemyActions.children).forEach((actionDiv) => {
+            actionDiv.classList.add("flip-in");
+          });
+        }, 100);
+
+        // Reset player's planned actions display
+        updatePlannedActionsDisplay();
+      }, 800);
+    }, 500);
+  }
+
+  function handleDefeat() {
+    // Clear the enemy's actions
+    clearEnemyMovesWithAnimation();
+
+    // Log defeat message
+    const defeatMsg = document.createElement("p");
+    defeatMsg.className = "defeat-message";
+    defeatMsg.textContent = "💀 DEFEATED! You have been bested by the enemy.";
+    log.appendChild(defeatMsg);
+    log.scrollTop = log.scrollHeight;
+
+    // End the game
+    setTimeout(() => {
+      endGame("Defeat! You were overwhelmed by your enemies. Better luck next time!");
+    }, 2000);
+  }
+
+  // Function to handle battle victory
+  function handleVictory() {
+    // Clear the enemy's actions
+    clearEnemyMovesWithAnimation();
+
+    // Log victory message
+    const victoryMsg = document.createElement("p");
+    victoryMsg.className = "victory-message";
+
+    // Check if it was an elite battle
+    const currentNode = gameState.map[gameState.currentNodeIndex];
+    const isEliteBattle = currentNode && currentNode.type === NODE_TYPES.ELITE.id;
+    const isBossBattle = currentNode && currentNode.isBoss;
+
+    if (isBossBattle) {
+      victoryMsg.textContent = "🏆 VICTORY! You have defeated the final boss!";
+      document.getElementById("resolution-log").appendChild(victoryMsg);
+      document.getElementById("resolution-log").scrollTop = document.getElementById("resolution-log").scrollHeight;
+
+      // End the game with victory
+      setTimeout(() => {
+        endGame("Victory! You have completed your adventure and defeated all enemies. Congratulations!");
+      }, 2000);
+      return;
+    } else if (isEliteBattle) {
+      victoryMsg.textContent = "💪 ELITE VICTORY! You defeated a powerful foe!";
+    } else {
+      victoryMsg.textContent = "✨ VICTORY! Enemy defeated!";
+    }
+
+    document.getElementById("resolution-log").appendChild(victoryMsg);
+    document.getElementById("resolution-log").scrollTop = document.getElementById("resolution-log").scrollHeight;
+
+    // Award coins with possible elite bonus
+    awardCoins(isEliteBattle);
+
+    // Clear the active debuff after battle completes
+    if (gameState.activeDebuff) {
+      // Log that the debuff has been removed
+      const debuffClearedLog = document.createElement("p");
+      debuffClearedLog.className = "item-effect";
+      debuffClearedLog.textContent = `😌 ${gameState.activeDebuff.name} debuff has worn off!`;
+      document.getElementById("resolution-log").appendChild(debuffClearedLog);
+      document.getElementById("resolution-log").scrollTop = document.getElementById("resolution-log").scrollHeight;
+
+      // Remove the debuff
+      gameState.activeDebuff = null;
+
+      // Hide the debuff display
+      const debuffContainer = document.getElementById("debuff-container");
+      if (debuffContainer) {
+        debuffContainer.classList.add("hidden");
+        debuffContainer.innerHTML = "";
+      }
+
+      // Reset any disabled buttons
+      document.querySelectorAll("#actions button").forEach((button) => {
+        button.classList.remove("disabled-by-debuff");
+        button.title = "";
+      });
+    }
+
+    // Apply post-battle effects
+    applyPostBattleEffects();
+
+    // Hide battle screen before showing node selection
+    setTimeout(() => {
+      // Make sure to hide the battle screen
+      document.getElementById("battle-screen").classList.add("hidden");
+
+      // Update available nodes first
+      updateAvailableNodes();
+
+      // Then show node selection
+      showNodeSelection();
+    }, 2000);
   }
 }
 
@@ -438,10 +728,29 @@ function startNewRun() {
       damageIncreasePerBattle: GAME_CONFIG.enemyScaling.damageIncreasePerBattle,
     },
     usedReviveItem: false, // Track if a revival item has been used in the current battle
+    map: [], // Will store the generated map
+    currentNodeIndex: 0, // Current position on the map
+    availableNodeChoices: [], // Available nodes to choose from
+    playerAllActions: [], // Track all player actions for elite enemy AI
+    temporaryItems: [], // Items that are only active for a specific duration
+    burnEffects: [], // Track any burn effects applied to enemies
   };
 
-  // Clear the resolution log when starting a new game
-  document.getElementById("resolution-log").innerHTML = "";
+  // Instead of clearing, add a marker for a new game
+  const log = document.getElementById("resolution-log");
+  if (log) {
+    // Only clear if starting a fresh game
+    if (log.innerHTML.includes("🏁 Game Over 🏁") || log.innerHTML === "") {
+      log.innerHTML = "";
+    } else {
+      // Add a divider for a new run
+      const divider = document.createElement("div");
+      divider.className = "battle-log-divider";
+      divider.innerHTML = "<p class='new-run-marker'>🔄 New Adventure Started 🔄</p>";
+      log.appendChild(divider);
+      log.scrollTop = log.scrollHeight;
+    }
+  }
 
   // Reset the final battle log container if it exists
   const finalLogContainer = document.getElementById("final-battle-log");
@@ -461,6 +770,22 @@ function startNewRun() {
     button.classList.remove("disabled-by-debuff");
     button.title = "";
   });
+
+  // Remove any event image containers that might persist between runs
+  const eventImage = document.getElementById("event-image");
+  if (eventImage) {
+    eventImage.remove();
+  }
+
+  // Reset item selection screen back to default state
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.removeAttribute("data-context");
+  itemSelection.classList.add("hidden");
+
+  // Clear any event choices from previous events
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.className = "";
+  itemOptionsContainer.innerHTML = "";
 
   // Show item selection instead of directly starting battle
   showItemSelection("start");
@@ -506,41 +831,25 @@ function updateUI() {
   updateHP("player", gameState.player.hp);
   updateHP("enemy", gameState.enemy.hp);
 
-  // Update progress indicators
-  document.getElementById("level-indicator").textContent = gameState.runProgress;
-  document.getElementById("progress-fill").style.width = `${(gameState.runProgress / gameState.maxBattles) * 100}%`;
-
   // Update round number
   document.getElementById("round-number").textContent = gameState.currentRound;
 
   // Update currency display
   updateCurrencyDisplay();
 
-  // Update run progress text
-  const runProgressElem = document.getElementById("run-progress");
-  let difficultyIndicator = "";
+  // Update battle information based on current node
+  const currentNode = gameState.map[gameState.currentNodeIndex];
+  const isBossBattle = currentNode && currentNode.isBoss;
+  const isEliteBattle = currentNode && currentNode.type === NODE_TYPES.ELITE.id;
 
-  // Add difficulty indicator based on run progress
-  if (gameState.runProgress > 1) {
-    const hpIncrease = (gameState.runProgress - 1) * gameState.enemyScaling.hpIncreasePerBattle;
-    const dmgIncrease = (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
-    difficultyIndicator = ` (HP +${hpIncrease}, DMG +${dmgIncrease})`;
-
-    // Set data attribute for CSS pseudo-element
-    runProgressElem.setAttribute("data-difficulty", `+${hpIncrease} HP, +${dmgIncrease} DMG`);
-  } else {
-    // Clear data attribute for first battle
-    runProgressElem.removeAttribute("data-difficulty");
-  }
-
-  // Add final boss indicator if on final battle
+  // Add battle type classes to game container
   const gameContainer = document.getElementById("game-container");
-  if (gameState.runProgress === gameState.maxBattles) {
-    runProgressElem.textContent = `Final Boss Battle`;
+  gameContainer.classList.remove("final-boss", "elite-battle");
+
+  if (isBossBattle) {
     gameContainer.classList.add("final-boss");
-  } else {
-    runProgressElem.textContent = `Battle ${gameState.runProgress}`;
-    gameContainer.classList.remove("final-boss");
+  } else if (isEliteBattle) {
+    gameContainer.classList.add("elite-battle");
   }
 
   // Add battle-start class to trigger animations
@@ -629,12 +938,6 @@ function clearAllActions() {
   updatePlannedActionsDisplay();
 }
 
-const emojiMap = {
-  Rock: "✊",
-  Paper: "✋",
-  Scissors: "✌️",
-};
-
 // Function to get random unique items from specified item pool
 function getRandomUniqueItems(count, itemPool) {
   const items = [...itemPool]; // Create a copy of the specified item array
@@ -654,11 +957,16 @@ function getRandomUniqueItems(count, itemPool) {
   return result;
 }
 
-// Function to award coins after battle victory
-function awardCoins() {
+// Modified awardCoins function to handle elite battles
+function awardCoins(isEliteBattle) {
   const min = GAME_CONFIG.currency.minRewardPerBattle;
   const max = GAME_CONFIG.currency.maxRewardPerBattle;
-  const coinsAwarded = Math.floor(Math.random() * (max - min + 1)) + min;
+  let coinsAwarded = Math.floor(Math.random() * (max - min + 1)) + min;
+
+  // Elite battles give bonus coins
+  if (isEliteBattle) {
+    coinsAwarded = Math.floor(coinsAwarded * GAME_CONFIG.currency.eliteBattleMultiplier);
+  }
 
   gameState.player.coins += coinsAwarded;
 
@@ -666,264 +974,12 @@ function awardCoins() {
   const log = document.getElementById("resolution-log");
   const coinsMsg = document.createElement("p");
   coinsMsg.className = "coin-effect";
-  coinsMsg.textContent = `💰 Coins: +${coinsAwarded} (Total: ${gameState.player.coins})`;
+  coinsMsg.textContent = `💰 Coins: +${coinsAwarded} ${isEliteBattle ? "(Elite Bonus!)" : ""} (Total: ${gameState.player.coins})`;
   log.appendChild(coinsMsg);
   log.scrollTop = log.scrollHeight;
 
   // Update currency display
   updateCurrencyDisplay();
-}
-
-// Function to handle item selection
-function selectItem(item) {
-  // Add the selected item to player's inventory
-  gameState.player.inventory.push(item);
-
-  // Apply one-time effects for utility items
-  if (item.type === "utility" && item.isOneTimeEffect) {
-    const result = item.effect();
-    if (result && item.triggerMessage) {
-      // Log the effect if it has a message
-      const log = document.getElementById("resolution-log");
-      const effectElem = document.createElement("p");
-      effectElem.className = "item-effect";
-      effectElem.textContent = `✨ ${item.triggerMessage()}`;
-      log.appendChild(effectElem);
-      log.scrollTop = log.scrollHeight;
-    }
-  }
-
-  // Hide item selection screen
-  document.getElementById("item-selection").classList.add("hidden");
-
-  // Continue based on context
-  if (gameState.itemSelectionContext === "start") {
-    // Start the first battle
-    document.getElementById("battle-screen").classList.remove("hidden");
-    initBattle();
-  } else {
-    // Award coins after victory (before applying other effects)
-    awardCoins();
-
-    // Apply post-battle effects (like healing)
-    applyPostBattleEffects();
-
-    // Heal the player after battle victory
-    const healAmount = 40;
-    const oldHp = gameState.player.hp;
-    gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + healAmount);
-    const actualHealAmount = gameState.player.hp - oldHp;
-
-    // Show healing message in log
-    const log = document.getElementById("resolution-log");
-    const healMsg = document.createElement("p");
-    healMsg.className = "heal-effect";
-    healMsg.textContent = `💚 Battle Rest: Recovered ${actualHealAmount} HP!`;
-    log.appendChild(healMsg);
-    log.scrollTop = log.scrollHeight;
-
-    // Continue to next battle after victory
-    document.getElementById("battle-screen").classList.remove("hidden");
-    initBattle();
-  }
-}
-
-// Function to apply post-battle effects from items
-function applyPostBattleEffects() {
-  const log = document.getElementById("resolution-log");
-
-  // Find and apply all post-battle effect items
-  gameState.player.inventory.forEach((item) => {
-    if (item.type === "postBattleEffect") {
-      const healAmount = item.effect(gameState);
-
-      // Log the effect if it has a message
-      if (item.triggerMessage) {
-        const effectElem = document.createElement("p");
-        effectElem.className = "heal-effect";
-        effectElem.textContent = `✨ ${item.triggerMessage(healAmount)}`;
-        log.appendChild(effectElem);
-        log.scrollTop = log.scrollHeight;
-      }
-
-      // Update the HP display
-      updateHP("player", gameState.player.hp);
-    }
-
-    // Apply scaling items (like Training Manual)
-    if (item.type === "scaling" && item.appliesTo === "baseDamage") {
-      gameState.enemyScaling.baseDamage = item.effect(gameState.enemyScaling.baseDamage);
-
-      // Log the effect if it has a message
-      if (item.triggerMessage) {
-        const effectElem = document.createElement("p");
-        effectElem.className = "item-effect";
-        effectElem.textContent = `✨ ${item.triggerMessage()}`;
-        log.appendChild(effectElem);
-        log.scrollTop = log.scrollHeight;
-      }
-    }
-  });
-}
-
-// Helper function to update inventory display
-function updateInventoryDisplay() {
-  // Update inventory with descriptions as tooltips
-  const inventoryList = document.getElementById("inventory");
-  inventoryList.innerHTML = "";
-
-  if (gameState.player.inventory.length === 0) {
-    inventoryList.textContent = "None";
-  } else {
-    // Count occurrences of each item by name
-    const itemCounts = {};
-    gameState.player.inventory.forEach((item) => {
-      if (itemCounts[item.name]) {
-        itemCounts[item.name].count++;
-      } else {
-        itemCounts[item.name] = {
-          item: item,
-          count: 1,
-        };
-      }
-    });
-
-    // Display each unique item with count
-    const uniqueItems = Object.values(itemCounts);
-    uniqueItems.forEach((itemData, index) => {
-      const item = itemData.item;
-      const count = itemData.count;
-
-      const itemElem = document.createElement("span");
-      itemElem.className = "inventory-item";
-      itemElem.textContent = item.name + (count > 1 ? ` (×${count})` : "");
-      itemElem.setAttribute("title", item.description || "");
-      itemElem.setAttribute("data-applies-to", item.appliesTo);
-
-      // Add a comma if not the last item
-      if (index < uniqueItems.length - 1) {
-        itemElem.textContent += ", ";
-      }
-
-      inventoryList.appendChild(itemElem);
-    });
-  }
-}
-
-// Helper function to set up debuff display
-function setupDebuffDisplay() {
-  // Update active debuff display
-  const debuffContainer = document.getElementById("debuff-container");
-  if (debuffContainer) {
-    if (gameState.activeDebuff) {
-      // Show debuff container and update its content
-      debuffContainer.classList.remove("hidden");
-      const debuff = gameState.activeDebuff;
-      debuffContainer.innerHTML = `
-        <span class="debuff-icon">${debuff.icon}</span>
-        <span class="debuff-name">${debuff.name}</span>
-        <span class="debuff-description">${debuff.description}</span>
-      `;
-
-      // Highlight disabled action buttons if applicable
-      if (debuff.effect.type === "ban_action") {
-        document.querySelectorAll("#actions button").forEach((button) => {
-          if (button.getAttribute("aria-label") === `Select ${debuff.effect.action}`) {
-            button.classList.add("disabled-by-debuff");
-            button.title = `${debuff.name}: Can't use ${debuff.effect.action}`;
-          } else {
-            button.classList.remove("disabled-by-debuff");
-            button.title = "";
-          }
-        });
-      } else if (debuff.effect.type === "only_allow_action") {
-        document.querySelectorAll("#actions button").forEach((button) => {
-          if (
-            button.getAttribute("aria-label") !== `Select ${debuff.effect.action}` &&
-            button.getAttribute("aria-label") &&
-            button.getAttribute("aria-label").startsWith("Select")
-          ) {
-            button.classList.add("disabled-by-debuff");
-            button.title = `${debuff.name}: Can only use ${debuff.effect.action}`;
-          } else {
-            button.classList.remove("disabled-by-debuff");
-            button.title = "";
-          }
-        });
-      } else {
-        // Reset all button classes if no action restrictions
-        document.querySelectorAll("#actions button").forEach((button) => {
-          button.classList.remove("disabled-by-debuff");
-          button.title = "";
-        });
-      }
-    } else {
-      // Hide debuff container when no active debuff
-      debuffContainer.classList.add("hidden");
-      // Clear the content as well to ensure it doesn't show anything
-      debuffContainer.innerHTML = "";
-      // Reset all button classes
-      document.querySelectorAll("#actions button").forEach((button) => {
-        button.classList.remove("disabled-by-debuff");
-        button.title = "";
-      });
-    }
-  }
-}
-
-// Function to clear enemy moves with animation
-function clearEnemyMovesWithAnimation() {
-  const enemyMoves = document.querySelectorAll("#enemy-actions div");
-
-  // First, remove any existing animation classes
-  enemyMoves.forEach((move) => {
-    move.classList.remove("flip-out", "revealed-action");
-    // Force a reflow to ensure animations restart properly
-    void move.offsetWidth;
-  });
-
-  // Then add the flip-out animation class
-  enemyMoves.forEach((move) => {
-    move.classList.add("flip-out");
-  });
-
-  // Return a promise that resolves after the animation completes
-  // Add extra time to account for the staggered delays (0.4s for last item + 0.8s animation time + 0.3s buffer)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Reset the enemy move elements to their hidden state after animation
-      enemyMoves.forEach((move) => {
-        move.classList.remove("flip-out", "revealed-action");
-        move.classList.add("hidden-action");
-        move.textContent = "?";
-      });
-      resolve();
-    }, 1500);
-  });
-}
-
-// Add this new function to handle item effect logging
-function logItemEffect(message, itemType = null) {
-  const log = document.getElementById("resolution-log");
-  const effectElem = document.createElement("p");
-  effectElem.className = "item-effect";
-
-  // Add specific class based on the message content or item type
-  if (itemType) {
-    effectElem.classList.add(`${itemType}-effect`);
-  } else if (message.includes("Shield")) {
-    effectElem.classList.add("shield-effect");
-  } else if (message.includes("Thorns")) {
-    effectElem.classList.add("thornmail-effect");
-  } else if (message.includes("Training")) {
-    effectElem.classList.add("training-effect");
-  } else if (message.includes("Mirrored")) {
-    effectElem.classList.add("mirror-effect");
-  }
-
-  effectElem.textContent = `✨ ${message}`;
-  log.appendChild(effectElem);
-  log.scrollTop = log.scrollHeight;
 }
 
 // Function to show item selection screen
@@ -991,8 +1047,8 @@ function showItemSelection(context) {
     if (item.appliesTo && !["utility", "defensive", "scaling"].includes(item.type)) {
       const appliesToElement = document.createElement("div");
       appliesToElement.className = "item-applies-to";
-      appliesToElement.textContent = `Affects: ${item.appliesTo}`;
       appliesToElement.setAttribute("data-applies-to", item.appliesTo);
+      appliesToElement.textContent = `Affects: ${item.appliesTo}`;
       itemElement.appendChild(appliesToElement);
     }
 
@@ -1000,190 +1056,1095 @@ function showItemSelection(context) {
   });
 }
 
-// Function to show special event choices after every 5th battle
-function showSpecialEvent() {
-  // Hide battle screen
-  document.getElementById("battle-screen").classList.add("hidden");
+// Function to handle item selection
+function selectItem(item) {
+  // Add the selected item to player's inventory
+  gameState.player.inventory.push(item);
 
-  // Show item selection screen (we'll repurpose this screen)
-  const itemSelection = document.getElementById("item-selection");
-  itemSelection.classList.remove("hidden");
-
-  // Add the special event attribute for CSS styling
-  itemSelection.setAttribute("data-event", "special");
-
-  // Update heading and description
-  document.getElementById("item-selection-heading").textContent = "Special Event!";
-  document.getElementById("item-selection-message").textContent = "Choose one reward:";
-
-  // Set up the two choices in the options container
-  const itemOptionsContainer = document.getElementById("item-options");
-  itemOptionsContainer.innerHTML = "";
-
-  // Choice 1: Restore 100 HP
-  const healChoice = document.createElement("div");
-  healChoice.className = "item-option special-event";
-  healChoice.onclick = () => selectSpecialReward("heal");
-
-  const healIcon = document.createElement("div");
-  healIcon.className = "special-event-icon";
-  healIcon.innerHTML = "❤️";
-
-  const healTitle = document.createElement("h3");
-  healTitle.textContent = "Restore Health";
-
-  const healDesc = document.createElement("p");
-  healDesc.textContent = "Restore 100 HP to your character";
-
-  healChoice.appendChild(healIcon);
-  healChoice.appendChild(healTitle);
-  healChoice.appendChild(healDesc);
-
-  // Choice 2: Random Relic
-  const relicChoice = document.createElement("div");
-  relicChoice.className = "item-option special-event relic";
-  relicChoice.onclick = () => selectSpecialReward("relic");
-
-  const relicIcon = document.createElement("div");
-  relicIcon.className = "special-event-icon";
-  relicIcon.innerHTML = "✨";
-
-  const relicTitle = document.createElement("h3");
-  relicTitle.textContent = "Random Relic";
-
-  const relicDesc = document.createElement("p");
-  relicDesc.textContent = "Receive a random powerful relic";
-
-  relicChoice.appendChild(relicIcon);
-  relicChoice.appendChild(relicTitle);
-  relicChoice.appendChild(relicDesc);
-
-  // Add both choices to the container
-  itemOptionsContainer.appendChild(healChoice);
-  itemOptionsContainer.appendChild(relicChoice);
-}
-
-// Function to handle special reward selection
-function selectSpecialReward(choice) {
-  // Hide the item selection screen
-  const itemSelection = document.getElementById("item-selection");
-  itemSelection.classList.add("hidden");
-
-  // Remove special event attribute
-  itemSelection.removeAttribute("data-event");
-
-  // Show the battle screen again
-  document.getElementById("battle-screen").classList.remove("hidden");
-
-  // Get the resolution log for messages
-  const log = document.getElementById("resolution-log");
-
-  if (choice === "heal") {
-    // Heal the player by 100 HP
-    const oldHp = gameState.player.hp;
-    gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + 100);
-    const actualHealAmount = gameState.player.hp - oldHp;
-
-    // Log the healing
-    const healMsg = document.createElement("p");
-    healMsg.className = "heal-effect special-heal";
-    healMsg.textContent = `❤️ Major Restoration: Recovered ${actualHealAmount} HP!`;
-    log.appendChild(healMsg);
-    log.scrollTop = log.scrollHeight;
-
-    // Update HP display
-    updateHP("player", gameState.player.hp);
-
-    // Add a pulsing animation to the player HP bar
-    const playerHpBar = document.getElementById("player-hp-bar");
-    playerHpBar.classList.add("major-heal");
-    setTimeout(() => {
-      playerHpBar.classList.remove("major-heal");
-    }, 2000);
-  } else if (choice === "relic") {
-    // Select a random relic
-    const availableRelics = [...RELICS];
-
-    // Filter out relics the player already has
-    const playerRelicNames = gameState.player.inventory.filter((item) => RELICS.some((relic) => relic.name === item.name)).map((item) => item.name);
-
-    // Remove relics the player already has
-    const uniqueRelics = availableRelics.filter((relic) => !playerRelicNames.includes(relic.name));
-
-    // If all relics are collected, just pick any random one
-    const relicPool = uniqueRelics.length > 0 ? uniqueRelics : availableRelics;
-
-    // Get a random relic
-    const randomRelic = relicPool[Math.floor(Math.random() * relicPool.length)];
-
-    // Add relic to inventory
-    gameState.player.inventory.push(randomRelic);
-
-    // Log the relic acquisition
-    const relicMsg = document.createElement("p");
-    relicMsg.className = "item-effect special-relic";
-    relicMsg.textContent = `✨ Obtained Relic: ${randomRelic.name}!`;
-    log.appendChild(relicMsg);
-
-    const relicDesc = document.createElement("p");
-    relicDesc.className = "item-effect";
-    relicDesc.textContent = `✨ ${randomRelic.description}`;
-    log.appendChild(relicDesc);
-
-    log.scrollTop = log.scrollHeight;
-
-    // Update inventory display
-    updateInventoryDisplay();
+  // Apply one-time effects for utility items
+  if (item.type === "utility" && item.isOneTimeEffect) {
+    const result = item.effect();
+    if (result && item.triggerMessage) {
+      // Log the effect if it has a message
+      const log = document.getElementById("resolution-log");
+      const effectElem = document.createElement("p");
+      effectElem.className = "item-effect";
+      effectElem.textContent = `✨ ${item.triggerMessage()}`;
+      log.appendChild(effectElem);
+      log.scrollTop = log.scrollHeight;
+    }
   }
 
-  // Continue to next battle
-  initBattle();
+  // Hide item selection screen
+  document.getElementById("item-selection").classList.add("hidden");
+
+  // Continue based on context
+  if (gameState.itemSelectionContext === "start") {
+    // Start the game with node-based progression
+    gameState.map = generateMap();
+    gameState.currentNodeIndex = 0;
+    updateAvailableNodes();
+    updateMapDisplay();
+    showNodeSelection();
+  } else if (gameState.itemSelectionContext === "victory") {
+    // Show node selection after item selection
+    showNodeSelection();
+  }
+
+  // Update inventory display
+  updateInventoryDisplay();
 }
 
-// Function to apply action replacer effects (like Mirror Amulet)
-function applyActionReplacerEffects() {
-  const actionReplacers = gameState.player.inventory.filter((item) => item.type === "actionReplacer" && item.appliesTo === "All");
+// Start game
+startNewRun();
 
-  if (actionReplacers.length > 0 && gameState.player.plannedActions.length > 0) {
-    actionReplacers.forEach((item) => {
-      // Create a copy of player actions before modification for comparison
-      const originalActions = [...gameState.player.plannedActions];
+// Function to generate the map for the run
+function generateMap() {
+  const map = [];
 
-      // Apply the action replacer effect
-      const newActions = item.effect([...gameState.player.plannedActions], [...gameState.enemy.actions]);
+  // Create initial node (starting point)
+  map.push({
+    id: 0,
+    type: "start",
+    x: 0,
+    y: 50,
+    connections: [1], // Connect to first encounter node
+    visited: true,
+  });
 
-      // Update the player's actions if they were changed
-      if (newActions && JSON.stringify(newActions) !== JSON.stringify(originalActions)) {
-        gameState.player.plannedActions = newActions;
+  // Create sequential nodes
+  let currentId = 1;
+  const nodeCount = 10; // Total nodes in the run (excluding start)
 
-        // Log the effect
-        if (item.triggerMessage) {
-          const log = document.getElementById("resolution-log");
-          const effectElem = document.createElement("p");
-          effectElem.className = "item-effect mirror-effect";
-          effectElem.textContent = `✨ ${item.triggerMessage()}`;
-          log.appendChild(effectElem);
-          log.scrollTop = log.scrollHeight;
+  // Create nodes in a horizontal line
+  for (let i = 1; i <= nodeCount; i++) {
+    // Determine node type based on position
+    let nodeType = determineNodeType(i);
 
-          // Add visual cue to the first move that was mirrored
-          setTimeout(() => {
-            const firstMoveElement = document.querySelector("#planned-actions div:first-child");
-            if (firstMoveElement) {
-              firstMoveElement.classList.add("mirrored-move");
-              // Remove the class after animation completes
-              setTimeout(() => {
-                firstMoveElement.classList.remove("mirrored-move");
-              }, 1500);
-            }
-          }, 300);
-        }
+    // Elite enemies should only appear from node 3 onwards
+    if (nodeType === NODE_TYPES.ELITE.id && i < 3) {
+      nodeType = NODE_TYPES.BATTLE.id;
+    }
 
-        // Update the UI to show the new actions
-        updatePlannedActionsDisplay();
+    // Last node is always a boss
+    const isBoss = i === nodeCount;
+    if (isBoss) {
+      nodeType = NODE_TYPES.BATTLE.id;
+    }
+
+    // Create node
+    map.push({
+      id: currentId,
+      type: isBoss ? NODE_TYPES.BATTLE.id : nodeType,
+      isBoss: isBoss,
+      x: (i * 100) / (nodeCount + 1), // Spread horizontally
+      y: 50, // All at same vertical level
+      connections: i < nodeCount ? [currentId + 1] : [], // Connect to next node if not the last
+      visited: false,
+    });
+
+    // Add incoming connection
+    if (i > 0) {
+      if (!map[currentId].incomingConnections) {
+        map[currentId].incomingConnections = [];
+      }
+      map[currentId].incomingConnections.push(currentId - 1);
+    }
+
+    currentId++;
+  }
+
+  return map;
+}
+
+// Helper function to determine node type based on position
+function determineNodeType(position) {
+  // Calculate probabilities based on position in the journey
+  const random = Math.random();
+
+  // First node is always a battle
+  if (position === 1) {
+    return NODE_TYPES.BATTLE.id;
+  }
+
+  // Create a distribution that changes as player progresses
+  let battleChance = 0.4 - position * 0.01; // Decrease battle chance slightly as we progress
+  let eliteChance = 0.1 + position * 0.02; // Increase elite chance as we progress
+  let shopChance = 0.15;
+  let restChance = 0.15 + position * 0.01; // Slightly increase rest chance
+  let eventChance = 0.2;
+
+  // Normalize probabilities to ensure they sum to 1
+  const total = battleChance + eliteChance + shopChance + restChance + eventChance;
+  battleChance /= total;
+  eliteChance /= total;
+  shopChance /= total;
+  restChance /= total;
+  // eventChance is remainder
+
+  // Determine node type based on random value
+  if (random < battleChance) {
+    return NODE_TYPES.BATTLE.id;
+  } else if (random < battleChance + eliteChance) {
+    return NODE_TYPES.ELITE.id;
+  } else if (random < battleChance + eliteChance + shopChance) {
+    return NODE_TYPES.SHOP.id;
+  } else if (random < battleChance + eliteChance + shopChance + restChance) {
+    return NODE_TYPES.REST.id;
+  } else {
+    return NODE_TYPES.EVENT.id;
+  }
+}
+
+// Helper function to shuffle an array
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+// Update available nodes based on current position
+function updateAvailableNodes() {
+  // Clear previous choices
+  gameState.availableNodeChoices = [];
+
+  // If we're at the starting point or a node with connections
+  if (gameState.map[gameState.currentNodeIndex]) {
+    const connections = gameState.map[gameState.currentNodeIndex].connections;
+    console.log("Current node:", gameState.currentNodeIndex, "Connections:", connections);
+
+    // Add each connected node as an available choice
+    connections.forEach((nodeId) => {
+      const node = gameState.map.find((node) => node.id === nodeId);
+      if (node && !node.visited) {
+        gameState.availableNodeChoices.push(node);
+        console.log("Added available node:", node.id, node.type);
       }
     });
   }
 }
 
-// Start game
-startNewRun();
+// Update the map display
+function updateMapDisplay() {
+  const mapContainer = document.getElementById("node-map-container");
+
+  // Clear current map display
+  mapContainer.innerHTML = "";
+
+  // Find current node
+  const currentNode = gameState.map[gameState.currentNodeIndex];
+  if (!currentNode) return;
+
+  // Find previous node (if exists)
+  let previousNode = null;
+  if (currentNode.incomingConnections && currentNode.incomingConnections.length > 0) {
+    const previousNodeId = currentNode.incomingConnections[0];
+    previousNode = gameState.map.find((node) => node.id === previousNodeId);
+  }
+
+  // Find next possible nodes
+  const nextNodes = [];
+  if (currentNode.connections && currentNode.connections.length > 0) {
+    currentNode.connections.forEach((nodeId) => {
+      const node = gameState.map.find((n) => n.id === nodeId);
+      if (node) {
+        nextNodes.push(node);
+      }
+    });
+  }
+
+  // Calculate horizontal positions
+  const nodeSpacing = 33; // percentage of container width
+  const centerPosition = 50;
+  let previousX = centerPosition - nodeSpacing;
+  let currentX = centerPosition;
+
+  // Draw paths first
+  // Previous to current path (if previous exists)
+  if (previousNode) {
+    const path = document.createElement("div");
+    path.className = "node-path active";
+
+    // Set path properties
+    path.style.width = `${nodeSpacing}%`;
+    path.style.left = `${previousX}%`;
+    path.style.top = `50%`;
+    path.style.transform = `rotate(0deg)`; // Horizontal path
+
+    mapContainer.appendChild(path);
+  }
+
+  // Current to next paths
+  nextNodes.forEach((node, index) => {
+    const path = document.createElement("div");
+    path.className = "node-path";
+
+    // For multiple next nodes, spread them out
+    const nextX = currentX + nodeSpacing;
+    const nextY = 50 + (index - (nextNodes.length - 1) / 2) * 20;
+
+    // Calculate angle if not perfectly horizontal
+    const angle = nextY !== 50 ? Math.atan2(nextY - 50, nodeSpacing) * (180 / Math.PI) : 0;
+
+    // Set path properties
+    path.style.width = `${Math.sqrt(Math.pow(nodeSpacing, 2) + Math.pow(nextY - 50, 2))}%`;
+    path.style.left = `${currentX}%`;
+    path.style.top = `50%`;
+    path.style.transform = `rotate(${angle}deg)`;
+
+    mapContainer.appendChild(path);
+  });
+
+  // Draw nodes
+  // Draw previous node (if exists)
+  if (previousNode) {
+    const nodeElem = document.createElement("div");
+    nodeElem.className = "map-node";
+    nodeElem.setAttribute("data-type", previousNode.type);
+    nodeElem.setAttribute("data-id", previousNode.id);
+    nodeElem.setAttribute("data-visited", "true");
+
+    if (previousNode.isBoss) {
+      nodeElem.setAttribute("data-is-boss", "true");
+    }
+
+    // Position the node
+    nodeElem.style.left = `${previousX}%`;
+    nodeElem.style.top = `50%`;
+    nodeElem.style.transform = `translate(-50%, -50%)`;
+
+    // Set node content based on type
+    const nodeType = Object.values(NODE_TYPES).find((type) => type.id === previousNode.type);
+    nodeElem.textContent = nodeType ? nodeType.icon : "❓";
+
+    // Add tooltip
+    if (nodeType) {
+      const tooltip = document.createElement("div");
+      tooltip.className = "node-tooltip";
+      tooltip.innerHTML = `<h4>${nodeType.name}</h4><p>${nodeType.description}</p>`;
+      nodeElem.appendChild(tooltip);
+    }
+
+    mapContainer.appendChild(nodeElem);
+  }
+
+  // Draw current node
+  const currentNodeElem = document.createElement("div");
+  currentNodeElem.className = "map-node";
+  currentNodeElem.setAttribute("data-type", currentNode.type);
+  currentNodeElem.setAttribute("data-id", currentNode.id);
+  currentNodeElem.setAttribute("data-visited", "true");
+  currentNodeElem.setAttribute("data-current", "true");
+
+  if (currentNode.isBoss) {
+    currentNodeElem.setAttribute("data-is-boss", "true");
+  }
+
+  // Position the node
+  currentNodeElem.style.left = `${currentX}%`;
+  currentNodeElem.style.top = `50%`;
+  currentNodeElem.style.transform = `translate(-50%, -50%)`;
+
+  // Set node content based on type
+  const currentNodeType = Object.values(NODE_TYPES).find((type) => type.id === currentNode.type);
+  currentNodeElem.textContent = currentNodeType ? currentNodeType.icon : "❓";
+
+  // Add tooltip
+  if (currentNodeType) {
+    const tooltip = document.createElement("div");
+    tooltip.className = "node-tooltip";
+    tooltip.innerHTML = `<h4>${currentNodeType.name}</h4><p>${currentNodeType.description}</p>`;
+    currentNodeElem.appendChild(tooltip);
+  }
+
+  mapContainer.appendChild(currentNodeElem);
+
+  // Draw next nodes
+  nextNodes.forEach((node, index) => {
+    const nodeElem = document.createElement("div");
+    nodeElem.className = "map-node";
+    nodeElem.setAttribute("data-type", node.type);
+    nodeElem.setAttribute("data-id", node.id);
+
+    if (node.isBoss) {
+      nodeElem.setAttribute("data-is-boss", "true");
+    }
+
+    // Position the node based on index
+    const nextX = currentX + nodeSpacing;
+    const nextY = 50 + (index - (nextNodes.length - 1) / 2) * 20;
+
+    nodeElem.style.left = `${nextX}%`;
+    nodeElem.style.top = `${nextY}%`;
+    nodeElem.style.transform = `translate(-50%, -50%)`;
+
+    // Set node content based on type
+    const nodeType = Object.values(NODE_TYPES).find((type) => type.id === node.type);
+    nodeElem.textContent = nodeType ? nodeType.icon : "❓";
+
+    // Add tooltip
+    if (nodeType) {
+      const tooltip = document.createElement("div");
+      tooltip.className = "node-tooltip";
+      tooltip.innerHTML = `<h4>${nodeType.name}</h4><p>${nodeType.description}</p>`;
+      nodeElem.appendChild(tooltip);
+    }
+
+    mapContainer.appendChild(nodeElem);
+
+    // Add click handler to next nodes
+    if (gameState.availableNodeChoices.find((choice) => choice.id === node.id)) {
+      nodeElem.setAttribute("data-available", "true");
+      nodeElem.onclick = () => {
+        // Clear any existing animations
+        document.querySelectorAll('.map-node[data-current="true"]').forEach((n) => n.removeAttribute("data-current"));
+        selectNode(node);
+      };
+    }
+  });
+}
+
+// Show node selection screen
+function showNodeSelection() {
+  // Hide other screens
+  document.getElementById("battle-screen").classList.add("hidden");
+  document.getElementById("item-selection").classList.add("hidden");
+  document.getElementById("game-over").classList.add("hidden");
+
+  // Clean up any event image that might be present
+  const eventImage = document.getElementById("event-image");
+  if (eventImage) {
+    eventImage.remove();
+  }
+
+  // Reset item selection context
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.removeAttribute("data-context");
+
+  // Clear any event choices from previous events
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.className = "";
+
+  // Update map display - this now includes tooltips for each node
+  updateMapDisplay();
+
+  // Make run-map visible
+  document.getElementById("run-map").classList.remove("hidden");
+}
+
+// Select a node from the map
+function selectNode(node) {
+  // Mark the node as visited
+  node.visited = true;
+
+  // Update current node index
+  gameState.currentNodeIndex = gameState.map.findIndex((mapNode) => mapNode.id === node.id);
+
+  // Process the node based on its type
+  processCurrentNode();
+}
+
+// Process the current node based on its type
+function processCurrentNode() {
+  const currentNode = gameState.map[gameState.currentNodeIndex];
+
+  if (!currentNode) {
+    console.error("Current node not found");
+    return;
+  }
+
+  // Hide the node-options-info if it exists (cleanup)
+  const nodeOptionsInfo = document.querySelector(".node-options-info");
+  if (nodeOptionsInfo) {
+    nodeOptionsInfo.remove();
+  }
+
+  // Hide run-map when entering a node
+  document.getElementById("run-map").classList.add("hidden");
+
+  // Process based on node type
+  switch (currentNode.type) {
+    case NODE_TYPES.BATTLE.id:
+    case "start":
+      // Show battle screen
+      document.getElementById("battle-screen").classList.remove("hidden");
+      // Initialize battle
+      initBattle(false);
+      break;
+
+    case NODE_TYPES.ELITE.id:
+      // Show battle screen
+      document.getElementById("battle-screen").classList.remove("hidden");
+      // Initialize elite battle
+      initBattle(true);
+      break;
+
+    case NODE_TYPES.SHOP.id:
+      // Show shop screen
+      showShop();
+      break;
+
+    case NODE_TYPES.REST.id:
+      // Show rest site options
+      showRestSite();
+      break;
+
+    case NODE_TYPES.EVENT.id:
+      // Show random event
+      showEvent();
+      break;
+
+    default:
+      console.error("Unknown node type:", currentNode.type);
+      // Fall back to a battle
+      document.getElementById("battle-screen").classList.remove("hidden");
+      initBattle(false);
+  }
+}
+
+// Show shop interface
+function showShop() {
+  // Hide other screens and show item selection
+  document.getElementById("battle-screen").classList.add("hidden");
+  document.getElementById("game-over").classList.add("hidden");
+
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.classList.remove("hidden");
+
+  // Set shop heading
+  document.getElementById("item-selection-heading").textContent = "Shop";
+  document.getElementById(
+    "item-selection-message"
+  ).textContent = `Select an item to purchase with your coins (You have ${gameState.player.coins} coins):`;
+
+  // Get 4 random shop items
+  const shopItems = getRandomUniqueItems(4, SHOP_ITEMS);
+
+  // Display shop items
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.innerHTML = "";
+
+  shopItems.forEach((item) => {
+    const itemElement = document.createElement("div");
+    itemElement.className = `item-option ${item.rarity || "common"}`;
+
+    const nameElement = document.createElement("h3");
+    nameElement.textContent = item.name;
+    itemElement.appendChild(nameElement);
+
+    const descElement = document.createElement("p");
+    descElement.textContent = item.description;
+    itemElement.appendChild(descElement);
+
+    const priceElement = document.createElement("div");
+    priceElement.className = "price";
+    priceElement.textContent = `${item.price} coins`;
+    itemElement.appendChild(priceElement);
+
+    // Disable if player can't afford it
+    if (gameState.player.coins < item.price) {
+      itemElement.classList.add("disabled");
+      itemElement.onclick = () => {
+        // Shake to indicate not enough coins
+        itemElement.classList.add("shake");
+        setTimeout(() => itemElement.classList.remove("shake"), 500);
+      };
+    } else {
+      itemElement.onclick = () => purchaseItem(item);
+    }
+
+    itemOptionsContainer.appendChild(itemElement);
+  });
+
+  // Add leave shop option
+  const leaveElement = document.createElement("div");
+  leaveElement.className = "item-option leave-shop";
+  leaveElement.textContent = "Leave Shop";
+  leaveElement.onclick = () => {
+    // Continue to next nodes
+    updateAvailableNodes();
+    showNodeSelection();
+  };
+
+  itemOptionsContainer.appendChild(leaveElement);
+}
+
+// Purchase an item from the shop
+function purchaseItem(item) {
+  // Deduct coins
+  gameState.player.coins -= item.price;
+
+  // Add item to inventory
+  if (item.temporaryEffect) {
+    gameState.temporaryItems.push({ ...item, battlesRemaining: item.duration || 1 });
+  } else {
+    gameState.player.inventory.push({ ...item });
+  }
+
+  // Apply one-time effects
+  if (item.oneTimeUse && item.effect) {
+    const result = item.effect(gameState);
+    if (result && item.triggerMessage) {
+      // Log the effect
+      const log = document.createElement("p");
+      log.className = "item-effect";
+      log.textContent = item.triggerMessage(result);
+      document.body.appendChild(log);
+      setTimeout(() => log.remove(), 3000);
+    }
+  }
+
+  // Update shop display
+  updateCurrencyDisplay();
+  updateInventoryDisplay();
+  showShop();
+}
+
+// Show rest site options
+function showRestSite() {
+  // Hide other screens
+  document.getElementById("battle-screen").classList.add("hidden");
+  document.getElementById("game-over").classList.add("hidden");
+
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.classList.remove("hidden");
+
+  // Set rest site heading
+  document.getElementById("item-selection-heading").textContent = "Rest Site";
+  document.getElementById("item-selection-message").textContent = "Choose one option:";
+
+  // Display rest options
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.innerHTML = "";
+
+  // Option 1: Heal
+  const healElement = document.createElement("div");
+  healElement.className = "rest-option";
+
+  const healTitle = document.createElement("h3");
+  healTitle.textContent = "Rest and Heal";
+  healElement.appendChild(healTitle);
+
+  const healDesc = document.createElement("p");
+  const healAmount = GAME_CONFIG.rest.healAmount;
+  healDesc.textContent = `Restore ${healAmount} HP`;
+  healElement.appendChild(healDesc);
+
+  const currentHp = document.createElement("div");
+  currentHp.className = "current-hp";
+  currentHp.textContent = `Current HP: ${gameState.player.hp}/${gameState.player.maxHp}`;
+  healElement.appendChild(currentHp);
+
+  // Disable heal if at max HP
+  if (gameState.player.hp >= gameState.player.maxHp) {
+    healElement.classList.add("disabled");
+    healElement.onclick = () => {
+      healElement.classList.add("shake");
+      setTimeout(() => healElement.classList.remove("shake"), 500);
+    };
+  } else {
+    healElement.onclick = () => {
+      // Heal player
+      const actualHealAmount = Math.min(healAmount, gameState.player.maxHp - gameState.player.hp);
+      gameState.player.hp += actualHealAmount;
+
+      // Update HP display
+      updateHP("player", gameState.player.hp);
+
+      // Show healing message
+      const log = document.createElement("p");
+      log.className = "heal-effect special-heal";
+      log.textContent = `❤️ You rest and recover ${actualHealAmount} HP!`;
+      document.body.appendChild(log);
+      setTimeout(() => log.remove(), 3000);
+
+      // Continue to next nodes
+      updateAvailableNodes();
+      showNodeSelection();
+    };
+  }
+
+  itemOptionsContainer.appendChild(healElement);
+
+  // Option 2: Upgrade an item
+  const upgradeElement = document.createElement("div");
+  upgradeElement.className = "rest-option";
+
+  const upgradeTitle = document.createElement("h3");
+  upgradeTitle.textContent = "Forge: Upgrade an Item";
+  upgradeElement.appendChild(upgradeTitle);
+
+  const upgradeDesc = document.createElement("p");
+  upgradeDesc.textContent = `Make one of your items 50% more powerful`;
+  upgradeElement.appendChild(upgradeDesc);
+
+  // Disable upgrade if no upgradeable items
+  const upgradeableItems = gameState.player.inventory.filter(
+    (item) => item.type === "actionModifier" && !item.upgraded && item.effect && typeof item.effect === "function"
+  );
+
+  if (upgradeableItems.length === 0) {
+    upgradeElement.classList.add("disabled");
+
+    const note = document.createElement("div");
+    note.className = "note";
+    note.textContent = "No upgradeable items";
+    upgradeElement.appendChild(note);
+
+    upgradeElement.onclick = () => {
+      upgradeElement.classList.add("shake");
+      setTimeout(() => upgradeElement.classList.remove("shake"), 500);
+    };
+  } else {
+    upgradeElement.onclick = () => showUpgradeOptions(upgradeableItems);
+  }
+
+  itemOptionsContainer.appendChild(upgradeElement);
+
+  // Option 3: Continue without resting
+  const continueElement = document.createElement("div");
+  continueElement.className = "rest-option";
+  continueElement.innerHTML = "<h3>Continue</h3><p>Move on without resting</p>";
+  continueElement.onclick = () => {
+    // Continue to next nodes
+    updateAvailableNodes();
+    showNodeSelection();
+  };
+
+  itemOptionsContainer.appendChild(continueElement);
+}
+
+// Show upgrade options for items
+function showUpgradeOptions(upgradeableItems) {
+  // Update rest site heading
+  document.getElementById("item-selection-heading").textContent = "Upgrade an Item";
+  document.getElementById("item-selection-message").textContent = "Select one item to upgrade:";
+
+  // Display upgradeable items
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.innerHTML = "";
+
+  upgradeableItems.forEach((item) => {
+    const itemElement = document.createElement("div");
+    itemElement.className = "item-option";
+
+    const nameElement = document.createElement("h3");
+    nameElement.textContent = item.name;
+    itemElement.appendChild(nameElement);
+
+    const descElement = document.createElement("p");
+    descElement.textContent = item.description;
+    itemElement.appendChild(descElement);
+
+    // Add "Upgrade to" description
+    const upgradeEffectElement = document.createElement("p");
+    upgradeEffectElement.className = "upgrade-effect";
+
+    // Determine the upgraded effect
+    if (item.description.includes("damage by")) {
+      // Extract the damage number
+      const damageMatch = item.description.match(/by (\d+)/);
+      if (damageMatch && damageMatch[1]) {
+        const currentDamage = parseInt(damageMatch[1]);
+        const upgradedDamage = Math.floor(currentDamage * GAME_CONFIG.rest.upgradeEffect);
+        upgradeEffectElement.textContent = `Upgrade to: Increases damage by ${upgradedDamage}`;
+      }
+    } else {
+      upgradeEffectElement.textContent = "Upgrade to: 50% more effective";
+    }
+
+    itemElement.appendChild(upgradeEffectElement);
+
+    itemElement.onclick = () => upgradeItem(item);
+
+    itemOptionsContainer.appendChild(itemElement);
+  });
+
+  // Add back button
+  const backElement = document.createElement("div");
+  backElement.className = "item-option leave-shop";
+  backElement.textContent = "Go Back";
+  backElement.onclick = () => showRestSite();
+
+  itemOptionsContainer.appendChild(backElement);
+}
+
+// Upgrade an item
+function upgradeItem(item) {
+  // Create upgraded version of the item
+  const originalEffect = item.effect;
+
+  // Upgrade the effect function
+  item.effect = (value) => {
+    const originalResult = originalEffect(value);
+    if (typeof originalResult === "number") {
+      return Math.floor(originalResult * GAME_CONFIG.rest.upgradeEffect);
+    }
+    return originalResult;
+  };
+
+  // Mark as upgraded
+  item.upgraded = true;
+
+  // Update the description
+  if (item.description.includes("damage by")) {
+    // Extract the damage number
+    const damageMatch = item.description.match(/by (\d+)/);
+    if (damageMatch && damageMatch[1]) {
+      const currentDamage = parseInt(damageMatch[1]);
+      const upgradedDamage = Math.floor(currentDamage * GAME_CONFIG.rest.upgradeEffect);
+      item.description = item.description.replace(/by \d+/, `by ${upgradedDamage}`);
+    }
+  } else {
+    item.description += " (Upgraded)";
+  }
+
+  // Show upgrade message
+  const log = document.createElement("p");
+  log.className = "item-effect";
+  log.textContent = `🔨 ${item.name} has been upgraded!`;
+  document.body.appendChild(log);
+  setTimeout(() => log.remove(), 3000);
+
+  // Update inventory display
+  updateInventoryDisplay();
+
+  // Continue to next nodes
+  updateAvailableNodes();
+  showNodeSelection();
+}
+
+// Show a random event
+function showEvent() {
+  // Hide other screens
+  document.getElementById("battle-screen").classList.add("hidden");
+  document.getElementById("game-over").classList.add("hidden");
+
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.classList.remove("hidden");
+
+  // Set context attribute for event-specific styling
+  itemSelection.setAttribute("data-context", "event");
+
+  // Select a random event
+  const event = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+
+  // Set event heading
+  document.getElementById("item-selection-heading").textContent = event.name;
+  document.getElementById("item-selection-message").textContent = event.description;
+
+  // Display event image
+  let eventImageId = "event-image";
+
+  // Always remove any existing event image to prevent duplicates or stale images
+  let existingEventImage = document.getElementById(eventImageId);
+  if (existingEventImage) {
+    existingEventImage.remove();
+  }
+
+  // Create a fresh event image container
+  const eventImage = document.createElement("div");
+  eventImage.id = eventImageId;
+  eventImage.className = "event-image-container";
+
+  // Insert after the message and before options
+  const message = document.getElementById("item-selection-message");
+  message.parentNode.insertBefore(eventImage, message.nextSibling);
+
+  // Set event type for image selection
+  const eventType = event.name.toLowerCase().replace(/\s+/g, "_");
+  eventImage.setAttribute("data-event", eventType);
+
+  // Display event choices
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.innerHTML = "";
+  itemOptionsContainer.className = "event-choices"; // Add class for event styling
+
+  event.choices.forEach((choice) => {
+    const choiceElement = document.createElement("div");
+    choiceElement.className = "event-choice";
+    choiceElement.textContent = choice.text;
+
+    choiceElement.onclick = () => {
+      // Apply choice effect
+      const resultMessage = choice.effect(gameState);
+
+      // Show result message
+      const log = document.createElement("p");
+      log.className = "event-effect";
+      log.textContent = resultMessage;
+      document.body.appendChild(log);
+
+      // Automatically remove the message after a delay
+      setTimeout(() => {
+        log.style.opacity = "0";
+        setTimeout(() => {
+          if (log && log.parentNode) {
+            log.parentNode.removeChild(log);
+          }
+        }, 1000); // Wait for fade out animation before removing
+      }, 5000); // Show for 5 seconds
+
+      // Add a brief flash effect to the selected choice
+      choiceElement.classList.add("selected");
+
+      // Disable all choice buttons after selection
+      document.querySelectorAll(".event-choice").forEach((btn) => {
+        btn.style.pointerEvents = "none";
+        if (btn !== choiceElement) {
+          btn.style.opacity = "0.5";
+        }
+      });
+
+      // Update displays
+      updateHP("player", gameState.player.hp);
+      updateCurrencyDisplay();
+      updateInventoryDisplay();
+
+      // Continue to next nodes after short delay
+      setTimeout(() => {
+        updateAvailableNodes();
+        showNodeSelection();
+      }, 2000);
+    };
+
+    itemOptionsContainer.appendChild(choiceElement);
+  });
+}
+
+// Process temporary items at the start of battle
+function processTemporaryItems() {
+  // Remove expired items
+  gameState.temporaryItems = gameState.temporaryItems.filter((item) => item.battlesRemaining > 0);
+
+  // Decrement battle counter for remaining items
+  gameState.temporaryItems.forEach((item) => {
+    item.battlesRemaining--;
+  });
+}
+
+// Apply action replacer effects (from debuffs)
+function applyActionReplacerEffects() {
+  // Reset any disabled buttons
+  document.querySelectorAll("#actions button").forEach((button) => {
+    button.classList.remove("disabled-by-debuff");
+    button.disabled = false;
+    button.title = "";
+  });
+
+  // If there's an active debuff that bans actions
+  if (gameState.activeDebuff && gameState.activeDebuff.effect.type === "ban_action") {
+    const bannedAction = gameState.activeDebuff.effect.action;
+    const actionButton = document.querySelector(`#actions button[aria-label="Select ${bannedAction}"]`);
+
+    if (actionButton) {
+      actionButton.classList.add("disabled-by-debuff");
+      actionButton.disabled = true;
+      actionButton.title = `${bannedAction} is disabled by ${gameState.activeDebuff.name}`;
+    }
+  }
+
+  // If there's an active debuff that only allows specific actions
+  if (gameState.activeDebuff && gameState.activeDebuff.effect.type === "only_allow_action") {
+    const allowedAction = gameState.activeDebuff.effect.action;
+
+    document.querySelectorAll("#actions button").forEach((button) => {
+      const actionLabel = button.getAttribute("aria-label");
+      if (actionLabel && actionLabel !== `Select ${allowedAction}` && !button.textContent.includes("🗑️") && !button.textContent.includes("⚔️")) {
+        button.classList.add("disabled-by-debuff");
+        button.disabled = true;
+        button.title = `Only ${allowedAction} is allowed due to ${gameState.activeDebuff.name}`;
+      }
+    });
+  }
+}
+
+// Apply post-battle effects from items
+function applyPostBattleEffects() {
+  // Look for items with postBattleEffect
+  gameState.player.inventory.forEach((item) => {
+    if (item.type === "postBattleEffect") {
+      const effectResult = item.effect(gameState);
+
+      // Display trigger message if there is one
+      if (item.triggerMessage && document.getElementById("resolution-log")) {
+        const msgElem = document.createElement("p");
+        msgElem.className = "item-effect";
+        msgElem.textContent = item.triggerMessage(effectResult);
+        document.getElementById("resolution-log").appendChild(msgElem);
+        document.getElementById("resolution-log").scrollTop = document.getElementById("resolution-log").scrollHeight;
+      }
+    }
+  });
+
+  // Update HP display to reflect any changes
+  updateHP("player", gameState.player.hp);
+}
+
+// Function to update the inventory display
+function updateInventoryDisplay() {
+  const inventoryElem = document.getElementById("inventory");
+  if (!inventoryElem) return;
+
+  if (gameState.player.inventory.length === 0) {
+    inventoryElem.textContent = "None";
+    return;
+  }
+
+  // Clear current inventory display
+  inventoryElem.innerHTML = "";
+
+  // Add all inventory items
+  gameState.player.inventory.forEach((item, index) => {
+    const itemSpan = document.createElement("span");
+    itemSpan.className = "inventory-item";
+    itemSpan.textContent = item.name;
+    itemSpan.title = item.description;
+
+    // Add data attribute for styling based on what the item applies to
+    if (item.appliesTo) {
+      itemSpan.setAttribute("data-applies-to", item.appliesTo);
+    }
+
+    // Add a flag if the item was upgraded
+    if (item.upgraded) {
+      itemSpan.setAttribute("data-upgraded", "true");
+    }
+
+    // Add comma separator between items
+    if (index < gameState.player.inventory.length - 1) {
+      itemSpan.textContent += ", ";
+    }
+
+    inventoryElem.appendChild(itemSpan);
+  });
+
+  // Also include temporary items
+  if (gameState.temporaryItems && gameState.temporaryItems.length > 0) {
+    const tempHeader = document.createElement("div");
+    tempHeader.className = "inventory-section";
+    tempHeader.textContent = "Temporary Items:";
+    inventoryElem.appendChild(document.createElement("br"));
+    inventoryElem.appendChild(tempHeader);
+
+    gameState.temporaryItems.forEach((item, index) => {
+      const itemSpan = document.createElement("span");
+      itemSpan.className = "inventory-item temporary";
+      itemSpan.textContent = `${item.name} (${item.battlesRemaining} battle${item.battlesRemaining !== 1 ? "s" : ""} left)`;
+      itemSpan.title = item.description;
+
+      // Add data attribute for styling
+      if (item.appliesTo) {
+        itemSpan.setAttribute("data-applies-to", item.appliesTo);
+      }
+
+      // Add comma separator between items
+      if (index < gameState.temporaryItems.length - 1) {
+        itemSpan.textContent += ", ";
+      }
+
+      inventoryElem.appendChild(itemSpan);
+    });
+  }
+}
+
+// Function to set up the debuff display
+function setupDebuffDisplay() {
+  const debuffContainer = document.getElementById("debuff-container");
+  if (!debuffContainer) return;
+
+  // Clear current debuff display
+  debuffContainer.innerHTML = "";
+
+  // If there's an active debuff, display it
+  if (gameState.activeDebuff) {
+    debuffContainer.classList.remove("hidden");
+
+    const iconElem = document.createElement("span");
+    iconElem.className = "debuff-icon";
+    iconElem.textContent = gameState.activeDebuff.icon;
+    debuffContainer.appendChild(iconElem);
+
+    const nameElem = document.createElement("span");
+    nameElem.className = "debuff-name";
+    nameElem.textContent = gameState.activeDebuff.name;
+    debuffContainer.appendChild(nameElem);
+
+    const descElem = document.createElement("span");
+    descElem.className = "debuff-description";
+    descElem.textContent = gameState.activeDebuff.description;
+    debuffContainer.appendChild(descElem);
+  } else {
+    debuffContainer.classList.add("hidden");
+  }
+}
+
+// Function to update enemy display
+function updateEnemyDisplay() {
+  // Update enemy name
+  document.getElementById("enemy-name").textContent = gameState.enemy.type.type;
+
+  // Update the enemy description
+  const enemyDescriptionElem = document.getElementById("enemy-description");
+  if (enemyDescriptionElem) {
+    // Check for elite ability
+    let description = gameState.enemy.type.description;
+
+    if (gameState.enemy.type.isElite) {
+      description += `<br><br><strong>Elite Ability:</strong> ${gameState.enemy.type.eliteAbility}`;
+    }
+
+    // Update the description directly
+    enemyDescriptionElem.innerHTML = description;
+    enemyDescriptionElem.className = "enemy-desc";
+  }
+
+  // Update the enemy actions container
+  const enemyActionsContainer = document.getElementById("enemy-actions");
+  enemyActionsContainer.innerHTML = ""; // Clear existing actions
+
+  // Add hidden actions for enemy
+  for (let i = 0; i < 5; i++) {
+    const actionDiv = document.createElement("div");
+    actionDiv.className = "hidden-action";
+    actionDiv.textContent = "?";
+    actionDiv.dataset.index = i;
+    enemyActionsContainer.appendChild(actionDiv);
+  }
+}
+
+// Function to update enemy actions display
+function updateEnemyActionsDisplay() {
+  const enemyActionsContainer = document.getElementById("enemy-actions");
+  enemyActionsContainer.innerHTML = "";
+
+  // Add hidden actions without animation
+  for (let i = 0; i < 5; i++) {
+    const actionDiv = document.createElement("div");
+    actionDiv.className = "hidden-action";
+    actionDiv.textContent = "?";
+    actionDiv.dataset.index = i;
+    enemyActionsContainer.appendChild(actionDiv);
+  }
+}
+
+// Function to clear enemy moves with animation
+function clearEnemyMovesWithAnimation() {
+  const enemyActions = document.getElementById("enemy-actions");
+  // Simply clear immediately without animations
+  enemyActions.innerHTML = "";
+  updateEnemyActionsDisplay();
+}
+
+// Function to clear the battle log
+function clearBattleLog() {
+  const log = document.getElementById("resolution-log");
+  if (log) {
+    // Add confirmation using browser's built-in confirm
+    if (confirm("Are you sure you want to clear the entire battle log?")) {
+      log.innerHTML = "";
+    }
+  }
+}
