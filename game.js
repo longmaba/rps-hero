@@ -70,6 +70,8 @@ function initBattle(isEliteBattle = false) {
   gameState.runProgress++;
   gameState.currentRound = 1; // Reset round for each battle
 
+  const existingOtherImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
+  existingOtherImages.forEach((img) => img.remove());
   // Add a separator in the battle log for a new battle
   const log = document.getElementById("resolution-log");
   if (log) {
@@ -684,10 +686,10 @@ function resolveRound() {
 
     // Log a round separator
     const log = document.getElementById("resolution-log");
-    const roundSeparator = document.createElement("p");
-    roundSeparator.className = "round-separator";
-    roundSeparator.textContent = `---- Round ${gameState.currentRound} ----`;
-    log.appendChild(roundSeparator);
+    // const roundSeparator = document.createElement("p");
+    // roundSeparator.className = "round-separator";
+    // roundSeparator.textContent = `---- Round ${gameState.currentRound} ----`;
+    // log.appendChild(roundSeparator);
 
     // Special handling for Berserker enemy - update rage level message
     if (gameState.enemy.type.type === "Berserker" || gameState.enemy.type.type === "Elite Berserker") {
@@ -2489,6 +2491,39 @@ function calculatePlayerDamage(playerAction, enemyAction) {
     return 0;
   }
 
+  // Apply Shielded enemy's blocking if applicable (for player hits on enemy)
+  if (result === "win" && gameState.enemy.type.type === "Shielded" && gameState.enemy.type.hasShield && gameState.enemy.type.shieldBlock) {
+    // Check if shield blocks the attack completely
+    if (gameState.enemy.type.shieldBlock(playerAction)) {
+      // Log the shield block
+      const log = document.getElementById("resolution-log");
+      if (log) {
+        const blockMsg = document.createElement("p");
+        blockMsg.className = "enemy-effect";
+        blockMsg.textContent = `🛡️ Shield completely blocks your ${playerAction} attack!`;
+        log.appendChild(blockMsg);
+      }
+      return 0; // Attack completely blocked
+    }
+    // Partial damage reduction
+    else if (gameState.enemy.type.damageReduction) {
+      // Initialize finalDamage now as we'll use it for shield calculations
+      let finalDamage = baseDamage;
+      const reducedDamage = Math.floor(finalDamage * (1 - gameState.enemy.type.damageReduction));
+
+      // Log the damage reduction
+      const log = document.getElementById("resolution-log");
+      if (log) {
+        const reduceMsg = document.createElement("p");
+        reduceMsg.className = "enemy-effect";
+        reduceMsg.textContent = `🛡️ Shield reduces damage from ${finalDamage} to ${reducedDamage}!`;
+        log.appendChild(reduceMsg);
+      }
+
+      return reducedDamage;
+    }
+  }
+
   // Track if a critical hit occurred
   let hadCriticalHit = false;
 
@@ -2591,37 +2626,6 @@ function calculateEnemyDamage(playerAction, enemyAction) {
       rageMsg.className = "enemy-effect";
       rageMsg.textContent = `🔥 ${gameState.enemy.type.type} rage increases damage to ${damage}!`;
       log.appendChild(rageMsg);
-    }
-  }
-
-  // Apply Shielded enemy's blocking if applicable
-  if (gameState.enemy.type.type === "Shielded" && gameState.enemy.type.hasShield && gameState.enemy.type.shieldBlock && result === "lose") {
-    // Check if shield blocks the attack completely
-    if (gameState.enemy.type.shieldBlock(playerAction)) {
-      // Log the shield block
-      const log = document.getElementById("resolution-log");
-      if (log) {
-        const blockMsg = document.createElement("p");
-        blockMsg.className = "enemy-effect";
-        blockMsg.textContent = `🛡️ Shield completely blocks your ${playerAction} attack!`;
-        log.appendChild(blockMsg);
-      }
-      return 0; // Attack completely blocked
-    }
-    // Partial damage reduction
-    else if (gameState.enemy.type.damageReduction) {
-      const reducedDamage = Math.floor(damage * (1 - gameState.enemy.type.damageReduction));
-
-      // Log the damage reduction
-      const log = document.getElementById("resolution-log");
-      if (log) {
-        const reduceMsg = document.createElement("p");
-        reduceMsg.className = "enemy-effect";
-        reduceMsg.textContent = `🛡️ Shield reduces damage from ${damage} to ${reducedDamage}!`;
-        log.appendChild(reduceMsg);
-      }
-
-      damage = reducedDamage;
     }
   }
 
