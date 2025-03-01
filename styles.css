@@ -45,7 +45,9 @@ h1 {
     position: relative;
     height: 120px; /* Reduced height for minimalist Ant Design style */
     width: 100%;
-    background-color: #1a1a1a;
+    background-image: url('assets/background.png');
+    background-size: cover;
+    background-position: center;
     border: 1px solid #444;
     border-radius: 5px;
     overflow: hidden;
@@ -182,11 +184,12 @@ h1 {
 
 .antd-step-line {
     position: absolute;
-    top: 22px;
+    top: 25px;
     right: calc(-50% + 22px);
     width: calc(100% - 44px);
-    height: 2px;
-    background-color: #555;
+    height: 3px;
+    background-color: #6673fb;
+    box-shadow: 0 0 10px rgba(102, 115, 251, 0.5);
     z-index: 1;
 }
 
@@ -606,6 +609,52 @@ h1 {
 .tie {
     background-color: rgba(52, 152, 219, 0.2);
     border-left: 4px solid #3498db;
+}
+
+/* Enemy effect styles */
+.enemy-effect {
+    background-color: rgba(192, 57, 43, 0.2);
+    border-left: 4px solid #c0392b;
+    color: #e74c3c;
+    padding: 8px 12px;
+    margin: 6px 0;
+    animation: pulseLight 1.5s infinite alternate;
+}
+
+.round-separator {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    text-align: center;
+    font-weight: bold;
+    padding: 5px;
+    margin: 10px 0;
+    border-top: 1px dashed #3498db;
+    border-bottom: 1px dashed #3498db;
+}
+
+/* Debuff effect styles */
+.debuff-effect {
+    background-color: rgba(231, 76, 60, 0.15);
+    border-left: 4px solid #c0392b;
+    color: #e74c3c;
+}
+
+.debuff-expired {
+    background-color: rgba(46, 204, 113, 0.15);
+    border-left: 4px solid #27ae60;
+    color: #2ecc71;
+}
+
+@keyframes pulseLight {
+    0% { opacity: 0.9; }
+    100% { opacity: 1; }
+}
+
+/* Additional styles for burn effects */
+.burn-effect, .burn-applied {
+    background-color: rgba(241, 196, 15, 0.2);
+    border-left: 4px solid #f39c12;
+    color: #f39c12;
 }
 
 /* Game over styling */

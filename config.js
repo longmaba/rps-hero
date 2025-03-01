@@ -26,6 +26,230 @@ const ENEMY_TYPES = [
     getActions: () => ["Rock", "Rock", "Paper", "Paper", "Scissors"],
     maxHp: 150,
   },
+  // New Enemy Types
+  {
+    type: "Predictor",
+    description: "Analyzes your patterns and predicts your next moves",
+    getActions: (gameState) => {
+      if (!gameState.playerAllActions || gameState.playerAllActions.length < 5) {
+        // Not enough data yet, use random moves
+        return Array(5)
+          .fill()
+          .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]);
+      }
+
+      // Count frequency of each action in player history
+      const counts = {
+        Rock: 0,
+        Paper: 0,
+        Scissors: 0,
+      };
+
+      gameState.playerAllActions.forEach((action) => {
+        counts[action]++;
+      });
+
+      // Determine the player's most frequent action
+      let mostFrequent = "Rock";
+      if (counts.Paper > counts[mostFrequent]) mostFrequent = "Paper";
+      if (counts.Scissors > counts[mostFrequent]) mostFrequent = "Scissors";
+
+      // Counter the most frequent action
+      const counter = {
+        Rock: "Paper",
+        Paper: "Scissors",
+        Scissors: "Rock",
+      };
+
+      // 80% chance to use the counter, 20% chance for random
+      return Array(5)
+        .fill()
+        .map(() => (Math.random() < 0.8 ? counter[mostFrequent] : ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]));
+    },
+    maxHp: 120,
+  },
+  {
+    type: "Berserker",
+    description: "Becomes more aggressive as health decreases",
+    getActions: (gameState) => {
+      // Calculate how "enraged" the berserker is based on missing health
+      const healthPercentage = gameState.enemy.hp / gameState.enemy.maxHp;
+      const enrageLevel = 1 - healthPercentage; // 0 when full health, 1 when no health
+
+      // Define actions based on enrage level
+      // More likely to use the same attack (becomes more predictable but more dangerous)
+      const actions = [];
+
+      // Choose a primary attack that will be used more frequently as health decreases
+      const primaryAttack = ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)];
+
+      for (let i = 0; i < 5; i++) {
+        // The lower the health, the more likely to use primary attack
+        if (Math.random() < enrageLevel * 0.8) {
+          actions.push(primaryAttack);
+        } else {
+          actions.push(["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]);
+        }
+      }
+
+      return actions;
+    },
+    maxHp: 130,
+    // Add custom property for damage multiplier based on missing health
+    getDamageMultiplier: (gameState) => {
+      const healthPercentage = gameState.enemy.hp / gameState.enemy.maxHp;
+      // Damage multiplier increases as health decreases (1.0 to 2.0)
+      return 1 + (1 - healthPercentage);
+    },
+  },
+  {
+    type: "Shielded",
+    description: "Can block or reduce damage from certain attacks",
+    getActions: () =>
+      Array(5)
+        .fill()
+        .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]),
+    maxHp: 110,
+    hasShield: true,
+    // Chance to block damage based on the attack type
+    shieldBlock: (playerAction) => {
+      // Shield is more effective against certain attacks
+      const blockChances = {
+        Rock: 0.5, // 50% chance to block Rock
+        Paper: 0.2, // 20% chance to block Paper
+        Scissors: 0.3, // 30% chance to block Scissors
+      };
+
+      return Math.random() < blockChances[playerAction];
+    },
+    // How much damage is reduced when not fully blocked
+    damageReduction: 0.3, // 30% damage reduction when not blocked
+  },
+  {
+    type: "Debilitator",
+    description: "Applies weakening effects to the player",
+    getActions: () =>
+      Array(5)
+        .fill()
+        .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]),
+    maxHp: 100,
+    // Apply debuffs when player loses
+    applyDebuff: (gameState, roundResult) => {
+      if (roundResult === "lose" && Math.random() < 0.3) {
+        // 30% chance to apply debuff on player loss
+        const possibleDebuffs = [
+          {
+            name: "Weakened",
+            effect: "Player damage reduced by 25% for 2 rounds",
+            duration: 2,
+            type: "damage_reduction",
+            value: 0.25,
+          },
+          {
+            name: "Confused",
+            effect: "25% chance your move will change to a random one",
+            duration: 2,
+            type: "move_confusion",
+            value: 0.25,
+          },
+        ];
+
+        // Select a random debuff
+        const debuff = possibleDebuffs[Math.floor(Math.random() * possibleDebuffs.length)];
+
+        // Apply the debuff to the player
+        if (!gameState.playerDebuffs) gameState.playerDebuffs = [];
+        gameState.playerDebuffs.push(debuff);
+
+        return debuff;
+      }
+      return null;
+    },
+  },
+  {
+    type: "Adaptive Learner",
+    description: "Learns from battle and adapts its strategy",
+    getActions: (gameState) => {
+      if (!gameState.adaptiveMemory) {
+        // Initialize adaptive memory for this battle
+        gameState.adaptiveMemory = {
+          playerMoves: [],
+          effectiveness: {
+            Rock: 0,
+            Paper: 0,
+            Scissors: 0,
+          },
+          roundsAnalyzed: 0,
+        };
+      }
+
+      if (gameState.playerLastRoundActions && gameState.roundResults) {
+        // Update effectiveness based on last round
+        gameState.playerLastRoundActions.forEach((move, index) => {
+          const result = gameState.roundResults[index];
+
+          // Track player's moves
+          gameState.adaptiveMemory.playerMoves.push(move);
+
+          // Adjust effectiveness based on results
+          if (result === "win") {
+            // Player won, decrease this move's effectiveness
+            gameState.adaptiveMemory.effectiveness[move] -= 1;
+          } else if (result === "lose") {
+            // Player lost, increase this move's effectiveness
+            gameState.adaptiveMemory.effectiveness[move] += 1;
+          }
+        });
+
+        gameState.adaptiveMemory.roundsAnalyzed++;
+      }
+
+      // If we have enough data, start adapting
+      if (gameState.adaptiveMemory.roundsAnalyzed >= 1) {
+        // Find which player move has been most effective
+        let bestMove = "Rock";
+        if (gameState.adaptiveMemory.effectiveness.Paper > gameState.adaptiveMemory.effectiveness[bestMove]) bestMove = "Paper";
+        if (gameState.adaptiveMemory.effectiveness.Scissors > gameState.adaptiveMemory.effectiveness[bestMove]) bestMove = "Scissors";
+
+        // Counter the player's best move
+        const counter = {
+          Rock: "Paper",
+          Paper: "Scissors",
+          Scissors: "Rock",
+        };
+
+        // Adaptive strategy: Mix of countering and prediction
+        return Array(5)
+          .fill()
+          .map(() => {
+            const strategy = Math.random();
+            if (strategy < 0.6) {
+              // Counter the player's most effective move
+              return counter[bestMove];
+            } else if (strategy < 0.8 && gameState.playerLastRoundActions) {
+              // Sometimes predict next move based on last move
+              const lastMove = gameState.playerLastRoundActions[0];
+              // Simple "next" prediction - players often rotate
+              const prediction = {
+                Rock: "Paper",
+                Paper: "Scissors",
+                Scissors: "Rock",
+              };
+              return counter[prediction[lastMove]];
+            } else {
+              // Random move
+              return ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)];
+            }
+          });
+      }
+
+      // Default to random moves until we have enough data
+      return Array(5)
+        .fill()
+        .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]);
+    },
+    maxHp: 115,
+  },
   // Elite enemies
   {
     type: "Elite Mimic",
@@ -88,6 +312,83 @@ const ENEMY_TYPES = [
     maxHp: 150,
     isElite: true,
     eliteAbility: "Analyzes your strategy and counters it",
+  },
+  // Elite versions of new enemies
+  {
+    type: "Elite Predictor",
+    description: "An elite enemy with enhanced prediction abilities",
+    getActions: (gameState) => {
+      if (!gameState.playerAllActions || gameState.playerAllActions.length < 3) {
+        // Not enough data yet, use random moves
+        return Array(5)
+          .fill()
+          .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]);
+      }
+
+      // Count frequency of each action in player history
+      const counts = {
+        Rock: 0,
+        Paper: 0,
+        Scissors: 0,
+      };
+
+      gameState.playerAllActions.forEach((action) => {
+        counts[action]++;
+      });
+
+      // Determine the player's most frequent action
+      let mostFrequent = "Rock";
+      if (counts.Paper > counts[mostFrequent]) mostFrequent = "Paper";
+      if (counts.Scissors > counts[mostFrequent]) mostFrequent = "Scissors";
+
+      // Counter the most frequent action
+      const counter = {
+        Rock: "Paper",
+        Paper: "Scissors",
+        Scissors: "Rock",
+      };
+
+      // 90% chance to use the counter (higher than non-elite version)
+      return Array(5)
+        .fill()
+        .map(() => (Math.random() < 0.9 ? counter[mostFrequent] : ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]));
+    },
+    maxHp: 160,
+    isElite: true,
+    eliteAbility: "Almost perfectly predicts and counters your most common moves",
+  },
+  {
+    type: "Elite Berserker",
+    description: "An elite enemy that becomes extremely dangerous at low health",
+    getActions: (gameState) => {
+      // Calculate how "enraged" the berserker is based on missing health
+      const healthPercentage = gameState.enemy.hp / gameState.enemy.maxHp;
+      const enrageLevel = 1 - healthPercentage; // 0 when full health, 1 when no health
+
+      // More predictable but more dangerous as health decreases
+      const actions = [];
+      const primaryAttack = ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)];
+
+      for (let i = 0; i < 5; i++) {
+        // Higher chance to use same attack than non-elite version
+        if (Math.random() < enrageLevel * 0.9) {
+          actions.push(primaryAttack);
+        } else {
+          actions.push(["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]);
+        }
+      }
+
+      return actions;
+    },
+    maxHp: 170,
+    isElite: true,
+    eliteAbility: "Gains up to 3x damage as health decreases",
+    // Enhanced damage multiplier for elite version
+    getDamageMultiplier: (gameState) => {
+      const healthPercentage = gameState.enemy.hp / gameState.enemy.maxHp;
+      // Damage multiplier increases more dramatically (1.0 to 3.0)
+      return 1 + (1 - healthPercentage) * 2;
+    },
   },
 ];
 
