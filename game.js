@@ -1297,172 +1297,128 @@ function updateMapDisplay() {
   const currentNode = gameState.map[gameState.currentNodeIndex];
   if (!currentNode) return;
 
-  // Find previous node (if exists)
-  let previousNode = null;
-  if (currentNode.incomingConnections && currentNode.incomingConnections.length > 0) {
-    const previousNodeId = currentNode.incomingConnections[0];
-    previousNode = gameState.map.find((node) => node.id === previousNodeId);
-  }
+  // Create the steps container
+  const stepsContainer = document.createElement("div");
+  stepsContainer.className = "antd-steps";
+  mapContainer.appendChild(stepsContainer);
 
-  // Find next possible nodes
-  const nextNodes = [];
+  // Determine which nodes to display
+  const MAX_VISIBLE_STEPS = 5; // Maximum nodes to show at once
+
+  // Get all accessible nodes (visited, current, and next available)
+  let nodesToDisplay = [];
+
+  // Add visited nodes first
+  gameState.map.forEach((node) => {
+    if (node.visited && node.id !== currentNode.id) {
+      nodesToDisplay.push(node);
+    }
+  });
+
+  // Add current node
+  nodesToDisplay.push(currentNode);
+
+  // Add next nodes (available choices)
   if (currentNode.connections && currentNode.connections.length > 0) {
     currentNode.connections.forEach((nodeId) => {
       const node = gameState.map.find((n) => n.id === nodeId);
       if (node) {
-        nextNodes.push(node);
+        nodesToDisplay.push(node);
       }
     });
   }
 
-  // Calculate horizontal positions
-  const nodeSpacing = 33; // percentage of container width
-  const centerPosition = 50;
-  let previousX = centerPosition - nodeSpacing;
-  let currentX = centerPosition;
-
-  // Draw paths first
-  // Previous to current path (if previous exists)
-  if (previousNode) {
-    const path = document.createElement("div");
-    path.className = "node-path active";
-
-    // Set path properties
-    path.style.width = `${nodeSpacing}%`;
-    path.style.left = `${previousX}%`;
-    path.style.top = `50%`;
-    path.style.transform = `rotate(0deg)`; // Horizontal path
-
-    mapContainer.appendChild(path);
+  // If too many nodes, keep only the most recent ones
+  if (nodesToDisplay.length > MAX_VISIBLE_STEPS) {
+    nodesToDisplay = nodesToDisplay.slice(nodesToDisplay.length - MAX_VISIBLE_STEPS);
   }
 
-  // Current to next paths
-  nextNodes.forEach((node, index) => {
-    const path = document.createElement("div");
-    path.className = "node-path";
+  // Create steps for each node
+  nodesToDisplay.forEach((node, index) => {
+    // Create step item
+    const stepItem = document.createElement("div");
+    stepItem.className = "antd-step";
+    stepItem.setAttribute("data-id", node.id);
+    stepItem.setAttribute("data-type", node.type);
 
-    // For multiple next nodes, spread them out
-    const nextX = currentX + nodeSpacing;
-    const nextY = 50 + (index - (nextNodes.length - 1) / 2) * 20;
-
-    // Calculate angle if not perfectly horizontal
-    const angle = nextY !== 50 ? Math.atan2(nextY - 50, nodeSpacing) * (180 / Math.PI) : 0;
-
-    // Set path properties
-    path.style.width = `${Math.sqrt(Math.pow(nodeSpacing, 2) + Math.pow(nextY - 50, 2))}%`;
-    path.style.left = `${currentX}%`;
-    path.style.top = `50%`;
-    path.style.transform = `rotate(${angle}deg)`;
-
-    mapContainer.appendChild(path);
-  });
-
-  // Draw nodes
-  // Draw previous node (if exists)
-  if (previousNode) {
-    const nodeElem = document.createElement("div");
-    nodeElem.className = "map-node";
-    nodeElem.setAttribute("data-type", previousNode.type);
-    nodeElem.setAttribute("data-id", previousNode.id);
-    nodeElem.setAttribute("data-visited", "true");
-
-    if (previousNode.isBoss) {
-      nodeElem.setAttribute("data-is-boss", "true");
+    // Set appropriate status
+    if (node.id === currentNode.id) {
+      stepItem.setAttribute("data-status", "current");
+    } else if (node.visited) {
+      stepItem.setAttribute("data-status", "finished");
+    } else if (gameState.availableNodeChoices.find((choice) => choice.id === node.id)) {
+      stepItem.setAttribute("data-status", "available");
+    } else {
+      stepItem.setAttribute("data-status", "pending");
     }
-
-    // Position the node
-    nodeElem.style.left = `${previousX}%`;
-    nodeElem.style.top = `50%`;
-    nodeElem.style.transform = `translate(-50%, -50%)`;
-
-    // Set node content based on type
-    const nodeType = Object.values(NODE_TYPES).find((type) => type.id === previousNode.type);
-    nodeElem.textContent = nodeType ? nodeType.icon : "❓";
-
-    // Add tooltip
-    if (nodeType) {
-      const tooltip = document.createElement("div");
-      tooltip.className = "node-tooltip";
-      tooltip.innerHTML = `<h4>${nodeType.name}</h4><p>${nodeType.description}</p>`;
-      nodeElem.appendChild(tooltip);
-    }
-
-    mapContainer.appendChild(nodeElem);
-  }
-
-  // Draw current node
-  const currentNodeElem = document.createElement("div");
-  currentNodeElem.className = "map-node";
-  currentNodeElem.setAttribute("data-type", currentNode.type);
-  currentNodeElem.setAttribute("data-id", currentNode.id);
-  currentNodeElem.setAttribute("data-visited", "true");
-  currentNodeElem.setAttribute("data-current", "true");
-
-  if (currentNode.isBoss) {
-    currentNodeElem.setAttribute("data-is-boss", "true");
-  }
-
-  // Position the node
-  currentNodeElem.style.left = `${currentX}%`;
-  currentNodeElem.style.top = `50%`;
-  currentNodeElem.style.transform = `translate(-50%, -50%)`;
-
-  // Set node content based on type
-  const currentNodeType = Object.values(NODE_TYPES).find((type) => type.id === currentNode.type);
-  currentNodeElem.textContent = currentNodeType ? currentNodeType.icon : "❓";
-
-  // Add tooltip
-  if (currentNodeType) {
-    const tooltip = document.createElement("div");
-    tooltip.className = "node-tooltip";
-    tooltip.innerHTML = `<h4>${currentNodeType.name}</h4><p>${currentNodeType.description}</p>`;
-    currentNodeElem.appendChild(tooltip);
-  }
-
-  mapContainer.appendChild(currentNodeElem);
-
-  // Draw next nodes
-  nextNodes.forEach((node, index) => {
-    const nodeElem = document.createElement("div");
-    nodeElem.className = "map-node";
-    nodeElem.setAttribute("data-type", node.type);
-    nodeElem.setAttribute("data-id", node.id);
 
     if (node.isBoss) {
-      nodeElem.setAttribute("data-is-boss", "true");
+      stepItem.setAttribute("data-is-boss", "true");
     }
 
-    // Position the node based on index
-    const nextX = currentX + nodeSpacing;
-    const nextY = 50 + (index - (nextNodes.length - 1) / 2) * 20;
-
-    nodeElem.style.left = `${nextX}%`;
-    nodeElem.style.top = `${nextY}%`;
-    nodeElem.style.transform = `translate(-50%, -50%)`;
+    // Create step icon container
+    const iconContainer = document.createElement("div");
+    iconContainer.className = "antd-step-icon";
 
     // Set node content based on type
     const nodeType = Object.values(NODE_TYPES).find((type) => type.id === node.type);
-    nodeElem.textContent = nodeType ? nodeType.icon : "❓";
+
+    // Show checkmark for finished nodes, or the node icon for current/available nodes
+    if (node.visited && node.id !== currentNode.id) {
+      const checkmark = document.createElement("span");
+      checkmark.className = "antd-step-checkmark";
+      checkmark.textContent = "✓";
+      iconContainer.appendChild(checkmark);
+
+      // Add small icon to indicate what type of node it was
+      const nodeTypeIndicator = document.createElement("span");
+      nodeTypeIndicator.className = "antd-step-type-indicator";
+      nodeTypeIndicator.textContent = nodeType ? nodeType.icon : "❓";
+      iconContainer.appendChild(nodeTypeIndicator);
+    } else {
+      iconContainer.textContent = nodeType ? nodeType.icon : "❓";
+    }
+
+    // Add node title below the icon (visible for current and next nodes)
+    if (node.id === currentNode.id || gameState.availableNodeChoices.find((choice) => choice.id === node.id)) {
+      const nodeTitle = document.createElement("div");
+      nodeTitle.className = "antd-step-title";
+      nodeTitle.textContent = nodeType ? nodeType.name : "Unknown";
+      stepItem.appendChild(nodeTitle);
+    }
 
     // Add tooltip
     if (nodeType) {
       const tooltip = document.createElement("div");
       tooltip.className = "node-tooltip";
       tooltip.innerHTML = `<h4>${nodeType.name}</h4><p>${nodeType.description}</p>`;
-      nodeElem.appendChild(tooltip);
+      iconContainer.appendChild(tooltip);
     }
 
-    mapContainer.appendChild(nodeElem);
+    stepItem.appendChild(iconContainer);
 
-    // Add click handler to next nodes
+    // Create connecting line (except for last node)
+    if (index < nodesToDisplay.length - 1) {
+      const line = document.createElement("div");
+      line.className = "antd-step-line";
+
+      // If this node is visited or current, mark the line as active
+      if (node.visited || node.id === currentNode.id) {
+        line.setAttribute("data-status", "active");
+      }
+
+      stepItem.appendChild(line);
+    }
+
+    // Add click handler to available next nodes
     if (gameState.availableNodeChoices.find((choice) => choice.id === node.id)) {
-      nodeElem.setAttribute("data-available", "true");
-      nodeElem.onclick = () => {
-        // Clear any existing animations
-        document.querySelectorAll('.map-node[data-current="true"]').forEach((n) => n.removeAttribute("data-current"));
+      stepItem.style.cursor = "pointer";
+      stepItem.onclick = () => {
         selectNode(node);
       };
     }
+
+    stepsContainer.appendChild(stepItem);
   });
 }
 
