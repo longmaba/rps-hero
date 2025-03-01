@@ -439,7 +439,7 @@ const ITEMS = [
     name: "Thornmail",
     type: "conditionalModifier",
     appliesTo: "All",
-    effect: (dmg) => {
+    effect: (dmg, gameState) => {
       const reflectDamage = Math.floor(dmg * 0.2);
       gameState.enemy.hp -= reflectDamage;
       return dmg;
@@ -515,10 +515,14 @@ const RELICS = [
     name: "Absolute Defense",
     type: "conditionalModifier",
     appliesTo: "Paper",
-    effect: (dmg) => (Math.random() < 0.5 ? 0 : dmg),
+    effect: (dmg, gameState) => {
+      const nullify = Math.random() < 0.5;
+      return nullify ? 0 : dmg; // Return 0 or original damage
+    },
     description: "Paper has 50% chance to nullify damage when losing",
     condition: "lose",
-    triggerMessage: (dmg) => (dmg === 0 ? "🛡️ Perfect defense! Nullified all damage!" : `Mitigated attack! Took ${dmg} damage.`),
+    triggerMessage: (finalDamage) =>
+      finalDamage === 0 ? "🛡️ Perfect defense! Nullified all damage!" : `Mitigated attack! Took ${finalDamage} damage.`,
   },
   {
     name: "Rock Solid",
@@ -558,10 +562,10 @@ const RELICS = [
   {
     name: "Training Script",
     type: "scaling",
-    effect: (baseValue) => baseValue + 10,
-    description: "Permanently increases base damage by 10 after each battle",
-    appliesTo: "baseDamage",
-    triggerMessage: () => "🏋️‍♂️ Training complete! Base damage increased by 10!",
+    effect: (currentBase) => currentBase + 10,
+    description: "Permanently increases YOUR base damage by 10 after each battle",
+    appliesTo: "playerBaseDamage",
+    triggerMessage: (amount) => `🏋️‍♂️ Training complete! Your base damage increased by ${amount}!`,
   },
 ];
 

@@ -28,12 +28,14 @@ let gameState = {
     inventory: [], // No starting item, will be chosen
     plannedActions: [],
     coins: GAME_CONFIG.currency.startingAmount, // Player's currency
+    baseDamage: GAME_CONFIG.baseDamage, // Add base damage tracking
   },
   enemy: {
     hp: 100,
     maxHp: 100,
     actions: [],
     type: "Basic",
+    baseDamage: GAME_CONFIG.baseDamage, // Enemy gets their own base damage from config
   },
   runProgress: 0,
   maxBattles: GAME_CONFIG.maxBattles, // Final boss at battle 3
@@ -137,10 +139,10 @@ function initBattle(isEliteBattle = false) {
     let availableEnemies;
     const progressPercentage = gameState.runProgress / gameState.maxBattles;
 
-    if (progressPercentage < 0.3) {
+    if (progressPercentage < 0.2) {
       // Early game - mostly basic enemies
       availableEnemies = regularEnemies.filter((enemy) => ["Basic", "Mimic"].includes(enemy.type));
-    } else if (progressPercentage < 0.6) {
+    } else if (progressPercentage < 0.4) {
       // Mid game - introduce Predictor and Shielded
       availableEnemies = regularEnemies.filter((enemy) => ["Basic", "Mimic", "Predictor", "Shielded"].includes(enemy.type));
     } else {
@@ -148,7 +150,7 @@ function initBattle(isEliteBattle = false) {
       availableEnemies = regularEnemies;
 
       // Increase chance of difficult enemies in late game
-      if (Math.random() < 0.6) {
+      if (Math.random() < 0.8) {
         availableEnemies = availableEnemies.filter((enemy) => !["Basic", "Mimic"].includes(enemy.type));
       }
     }
@@ -164,6 +166,7 @@ function initBattle(isEliteBattle = false) {
     maxHp: scaledHp,
     type: enemyType, // Store the enemy type object
     actions: enemyType.getActions(gameState), // Set actions for the first round
+    baseDamage: GAME_CONFIG.baseDamage, // Enemy gets their own base damage from config
   };
 
   // Clear all planned actions
@@ -431,7 +434,7 @@ function resolveRound() {
         gameState.roundResults.push("win");
 
         // Apply scaling based on battle number
-        playerDamage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
+        // playerDamage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
 
         // Display effects for conditional modifiers (without re-applying them)
         // The actual damage calculation has already happened in calculatePlayerDamage
@@ -449,7 +452,7 @@ function resolveRound() {
                 effectElem.textContent = item.triggerMessage(playerDamage);
                 log.appendChild(effectElem);
               } else if (item.hasCritEffect) {
-                // Check if this item caused a critical hit in this round
+                // For items with crit effects, only show message if a critical hit occurred
                 const wasCriticalHit =
                   gameState.roundInfo &&
                   gameState.roundInfo.lastCriticalHit &&
@@ -457,20 +460,8 @@ function resolveRound() {
                   gameState.roundInfo.lastCriticalHit.action === playerAction;
 
                 if (wasCriticalHit) {
+                  // Only show message if this was actually a critical hit
                   effectElem.className = "item-effect special-relic";
-                  effectElem.textContent = item.triggerMessage(playerDamage);
-                  log.appendChild(effectElem);
-                } else if (item.name !== "Coup De Grace") {
-                  // For other crit effects, check for isCrit
-                  effectResult = item.effect(0, gameState); // Pass 0 as we're not using the result
-
-                  if (effectResult && typeof effectResult === "object" && effectResult.isCrit) {
-                    effectElem.className = "item-effect special-relic";
-                    effectElem.textContent = item.triggerMessage(playerDamage);
-                    log.appendChild(effectElem);
-                  }
-                } else {
-                  // Standard message display for non-crit effects
                   effectElem.textContent = item.triggerMessage(playerDamage);
                   log.appendChild(effectElem);
                 }
@@ -524,7 +515,7 @@ function resolveRound() {
         gameState.roundResults.push("lose");
 
         // Calculate enemy damage based on round progression
-        enemyDamage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
+        // enemyDamage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
 
         // Apply elite bonus damage if applicable
         if (gameState.enemy.type.isElite) {
@@ -533,16 +524,13 @@ function resolveRound() {
 
         // Apply any defensive item effects
         let originalDamage = enemyDamage;
+        // We're NOT displaying messages here anymore - they're already displayed in calculateEnemyDamage
         gameState.player.inventory.forEach((item) => {
-          if (item.type === "conditionalModifier" && item.condition === "lose" && (item.appliesTo === "All" || item.appliesTo === enemyAction)) {
-            enemyDamage = item.effect(enemyDamage, gameState);
-
-            // Show trigger message if provided
-            if (item.triggerMessage) {
-              const effectElem = document.createElement("p");
-              effectElem.className = "item-effect";
-              effectElem.textContent = item.triggerMessage(originalDamage);
-              log.appendChild(effectElem);
+          if (item.type === "conditionalModifier" && item.condition === "lose") {
+            // Check if this item applies to all actions or specifically to the PLAYER'S action
+            if (item.appliesTo === "All" || item.appliesTo === playerAction) {
+              // Do NOT reapply the effect or show messages - both are handled in calculateEnemyDamage
+              // This block intentionally left empty to preserve the structure but avoid duplicate effects
             }
           }
         });
@@ -949,12 +937,14 @@ function startNewRun() {
       plannedActions: [],
       coins: GAME_CONFIG.currency.startingAmount,
       currentNode: 0,
+      baseDamage: GAME_CONFIG.baseDamage, // Add base damage tracking
     },
     enemy: {
       hp: ENEMY_TYPES[0].maxHp, // Initialize with first enemy type's HP
       maxHp: ENEMY_TYPES[0].maxHp,
       actions: [],
       type: ENEMY_TYPES[0].type,
+      baseDamage: GAME_CONFIG.baseDamage, // Enemy gets their own base damage from config
     },
     runProgress: 0,
     maxBattles: GAME_CONFIG.maxBattles,
@@ -1235,7 +1225,6 @@ function showItemSelection(context) {
   let itemPool = ITEMS;
   let heading = "";
   let description = "";
-
   if (context === "start") {
     // At the start, player selects a relic
     itemPool = RELICS;
@@ -1252,14 +1241,17 @@ function showItemSelection(context) {
   document.getElementById("item-selection-heading").textContent = heading;
   document.getElementById("item-selection-message").textContent = description;
 
-  // Get random unique items from the appropriate pool
-  const itemOptions = getRandomUniqueItems(3, itemPool);
+  // Filter items to only show those that apply to Rock/Paper/Scissors
+  // const validItems = ITEMS.filter((item) => !item.appliesTo || ["Rock", "Paper", "Scissors"].includes(item.appliesTo));
+
+  // Get 3 random unique items from the filtered list
+  const items = getRandomUniqueItems(3, itemPool);
 
   // Display items
   const itemOptionsContainer = document.getElementById("item-options");
   itemOptionsContainer.innerHTML = "";
 
-  itemOptions.forEach((item) => {
+  items.forEach((item) => {
     const itemElement = document.createElement("div");
     itemElement.className = "item-option";
     if (context === "start") {
@@ -2229,24 +2221,30 @@ function applyActionReplacerEffects() {
 
 // Apply post-battle effects from items
 function applyPostBattleEffects() {
-  // Look for items with postBattleEffect
-  gameState.player.inventory.forEach((item) => {
-    if (item.type === "postBattleEffect") {
-      const effectResult = item.effect(gameState);
+  // Process temporary items first
+  processTemporaryItems();
 
-      // Display trigger message if there is one
-      if (item.triggerMessage && document.getElementById("resolution-log")) {
-        const msgElem = document.createElement("p");
-        msgElem.className = "item-effect";
-        msgElem.textContent = item.triggerMessage(effectResult);
-        document.getElementById("resolution-log").appendChild(msgElem);
-        document.getElementById("resolution-log").scrollTop = document.getElementById("resolution-log").scrollHeight;
-      }
+  // Handle scaling items
+  let damageIncrease = 0;
+
+  gameState.player.inventory.forEach((item) => {
+    if (item.type === "scaling" && item.appliesTo === "playerBaseDamage") {
+      const originalDamage = gameState.player.baseDamage;
+      gameState.player.baseDamage = item.effect(gameState.player.baseDamage);
+      damageIncrease += gameState.player.baseDamage - originalDamage;
     }
   });
 
-  // Update HP display to reflect any changes
-  updateHP("player", gameState.player.hp);
+  // Show trigger message if there was an increase
+  if (damageIncrease > 0) {
+    const logElem = document.createElement("p");
+    logElem.textContent = `🏋️‍♂️ Training complete! Your base damage increased by ${damageIncrease}!`;
+    logElem.className = "player-effect";
+    document.getElementById("resolution-log").appendChild(logElem);
+  }
+
+  // Rest of existing post-battle logic...
+  // [Keep all other existing code in this function]
 }
 
 // Function to update the inventory display
@@ -2473,8 +2471,15 @@ function clearBattleLog() {
 
 // Add these functions near the top of game.js
 function calculatePlayerDamage(playerAction, enemyAction) {
-  // Base damage value from game config
-  let baseDamage = Number(GAME_CONFIG.baseDamage) || 0;
+  // Use player's individual base damage
+  let baseDamage = gameState.player.baseDamage;
+
+  // Apply scaling effects first
+  gameState.player.inventory.forEach((item) => {
+    if (item.type === "scaling" && item.appliesTo === "baseDamage") {
+      baseDamage = item.effect(baseDamage);
+    }
+  });
 
   // Determine the outcome of the round
   const result = determineRoundWinner(playerAction, enemyAction);
@@ -2553,7 +2558,13 @@ function calculatePlayerDamage(playerAction, enemyAction) {
 }
 
 function calculateEnemyDamage(playerAction, enemyAction) {
-  let damage = Number(GAME_CONFIG.baseDamage) || 0;
+  // Use enemy's individual base damage
+  let baseDamage = gameState.enemy.baseDamage;
+
+  // Initialize damage with base damage
+  let damage = baseDamage;
+
+  // Determine the outcome of the round from player's perspective
   const result = determineRoundWinner(playerAction, enemyAction);
 
   // Apply enemy scaling
@@ -2564,11 +2575,11 @@ function calculateEnemyDamage(playerAction, enemyAction) {
     damage = Math.floor(damage * 1.2);
   }
 
-  // Apply Berserker damage multiplier if applicable
+  // Apply Berserker damage multiplier if applicable (only when player loses)
   if (
     (gameState.enemy.type.type === "Berserker" || gameState.enemy.type.type === "Elite Berserker") &&
     gameState.enemy.type.getDamageMultiplier &&
-    result === "lose"
+    result === "lose" // Only apply when player loses the round
   ) {
     const multiplier = gameState.enemy.type.getDamageMultiplier(gameState);
     damage = Math.floor(damage * multiplier);
@@ -2616,20 +2627,22 @@ function calculateEnemyDamage(playerAction, enemyAction) {
 
   // Apply conditional modifiers from player items
   if (result === "lose") {
+    const log = document.getElementById("resolution-log");
     gameState.player.inventory.forEach((item) => {
-      if (item.type === "conditionalModifier" && item.condition === "lose" && playerAction === item.appliesTo) {
-        const modifiedDamage = item.effect(damage);
+      if (item.type === "conditionalModifier" && item.condition === "lose") {
+        // Check if this item applies to all actions or specifically to the PLAYER'S action
+        if (item.appliesTo === "All" || item.appliesTo === playerAction) {
+          // Apply effect (pass gameState to all effects)
+          damage = item.effect(damage, gameState);
 
-        // Log the effect
-        const log = document.getElementById("resolution-log");
-        if (log && item.triggerMessage) {
-          const effectMsg = document.createElement("p");
-          effectMsg.className = "debuff-effect";
-          effectMsg.textContent = item.triggerMessage(modifiedDamage);
-          log.appendChild(effectMsg);
+          // Show trigger message
+          if (item.triggerMessage && log) {
+            const effectElem = document.createElement("p");
+            effectElem.className = "item-effect";
+            effectElem.textContent = item.triggerMessage(damage);
+            log.appendChild(effectElem);
+          }
         }
-
-        damage = Number(modifiedDamage) || damage; // Fallback to original if NaN
       }
     });
   }
