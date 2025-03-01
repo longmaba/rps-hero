@@ -671,8 +671,8 @@ const GAME_CONFIG = {
     pathsPerNode: 2, // Number of paths from each node
     minElites: 2, // Minimum number of elite battles per run
     maxElites: 4, // Maximum number of elite battles per run
-    shopFrequency: 0.5, // Chance for a shop node
-    restFrequency: 0.5, // Chance for a rest node
+    shopFrequency: 0.15, // Chance for a shop node
+    restFrequency: 0.15, // Chance for a rest node
     eventFrequency: 0.1, // Chance for an event node
     bossNodeIndex: 15, // The node index of the final boss
   },
