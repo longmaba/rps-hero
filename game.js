@@ -809,6 +809,7 @@ function startNewRun() {
 
   // Clear any remaining DOM elements
   document.querySelectorAll(".rest-site-image, .event-image-container").forEach((el) => el.remove());
+  console.log("1");
 
   // Reset the final battle log container if it exists
   const finalLogContainer = document.getElementById("final-battle-log");
@@ -833,6 +834,7 @@ function startNewRun() {
   const eventImage = document.getElementById("event-image");
   if (eventImage) {
     eventImage.remove();
+    console.log(2);
   }
 
   // Reset item selection screen back to default state
@@ -1474,6 +1476,7 @@ function showNodeSelection() {
   // Clean up any event image that might be present
   const eventImage = document.getElementById("event-image");
   if (eventImage) {
+    console.log(3);
     eventImage.remove();
   }
 
@@ -1562,7 +1565,8 @@ function processCurrentNode() {
   }
 
   // When leaving any screen
-  document.querySelectorAll(".rest-site-image, .event-image-container").forEach((el) => el.remove());
+  // document.querySelectorAll(".rest-site-image, .event-image-container").forEach((el) => el.remove());
+  // console.log(4);
 }
 
 // Show shop interface
@@ -1683,11 +1687,17 @@ function showRestSite() {
   // Remove existing images first
   const existingImages = document.querySelectorAll(".rest-site-image, .event-image-container");
   existingImages.forEach((img) => img.remove());
+  console.log(5);
 
   // Create rest site image
   const imageContainer = document.createElement("div");
   imageContainer.className = "rest-site-image";
-  document.getElementById("item-selection").insertAdjacentElement("afterend", imageContainer);
+
+  // insert the image after the message but before the item options
+  const message = document.getElementById("item-selection-message");
+  message.insertAdjacentElement("afterend", imageContainer);
+
+  // document.getElementById("item-selection").insertAdjacentElement("afterend", imageContainer);
 
   // Display rest options
   const itemOptionsContainer = document.getElementById("item-options");
@@ -1804,6 +1814,7 @@ function showEvent() {
   // Remove any existing images to prevent duplicates or overlap
   const existingEventImage = itemSelection.querySelector(".event-image-container");
   if (existingEventImage) {
+    console.log(6);
     existingEventImage.remove();
   }
 
@@ -1817,7 +1828,7 @@ function showEvent() {
   imageContainer.className = "event-image-container";
   imageContainer.setAttribute("data-event", event.type);
 
-  // Insert the image after the message
+  // Insert the image after the message but before the item options
   const message = document.getElementById("item-selection-message");
   message.insertAdjacentElement("afterend", imageContainer);
 
