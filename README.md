@@ -4,6 +4,8 @@
 
 Ready to take Rock Paper Scissors to the NEXT LEVEL? Forget everything you thought you knew about this classic – we've turned it into an EPIC roguelike adventure that will keep you on the edge of your seat!
 
+## 🎯 [PLAY NOW - CLICK HERE TO START YOUR ADVENTURE!](https://longmaba.github.io/rps-hero/) 🎯
+
 **RPS: Battle Royale** isn't your grandma's rock-paper-scissors. It's a hardcore, strategy-based dungeon crawler where every choice matters and sick combos can mean the difference between sweet victory and brutal defeat!
 
 ## ⚔️ EPIC FEATURES ⚔️
@@ -49,7 +51,7 @@ Ready to take Rock Paper Scissors to the NEXT LEVEL? Forget everything you thoug
 
 This ain't your casual mobile game – RPS: Battle Royale requires galaxy brain plays and quick adaptation. Every run is different, every enemy has its own quirks, and death is just the beginning of your next epic run!
 
-So what are you waiting for? JUMP IN AND START PLAYING NOW!
+So what are you waiting for? [JUMP IN AND START PLAYING NOW!](https://longmaba.github.io/rps-hero/)
 
 _Developed by an absolute legend who turned rock-paper-scissors into a big brain gaming experience._
 
