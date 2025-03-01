@@ -1230,33 +1230,47 @@ function determineNodeType(position) {
     return NODE_TYPES.BATTLE.id;
   }
 
-  // Create a distribution that changes as player progresses
-  let battleChance = 0.4 - position * 0.01; // Decrease battle chance slightly as we progress
-  let eliteChance = 0.1 + position * 0.02; // Increase elite chance as we progress
-  let shopChance = 0.15;
-  let restChance = 0.15 + position * 0.01; // Slightly increase rest chance
-  let eventChance = 0.2;
+  // Get frequencies from GAME_CONFIG
+  let battleChance = 0.6 - position * 0.02; // Decrease battle chance slightly as we progress
+  let eliteChance = GAME_CONFIG.map.eliteFrequency || 0.15;
+  let shopChance = GAME_CONFIG.map.shopFrequency || 0.15;
+  let restChance = GAME_CONFIG.map.restFrequency || 0.15;
+  let eventChance = GAME_CONFIG.map.eventFrequency || 0.1;
+  let treasureChance = GAME_CONFIG.map.treasureFrequency || 0.2;
+
+  // Adjust frequencies based on position if needed
+  if (position > 3) {
+    eliteChance += 0.05; // Increase elite chance later in the run
+  }
 
   // Normalize probabilities to ensure they sum to 1
-  const total = battleChance + eliteChance + shopChance + restChance + eventChance;
+  const total = battleChance + eliteChance + shopChance + restChance + eventChance + treasureChance;
   battleChance /= total;
   eliteChance /= total;
   shopChance /= total;
   restChance /= total;
-  // eventChance is remainder
+  eventChance /= total;
+  // treasureChance is remainder
 
   // Determine node type based on random value
-  if (random < battleChance) {
-    return NODE_TYPES.BATTLE.id;
-  } else if (random < battleChance + eliteChance) {
-    return NODE_TYPES.ELITE.id;
-  } else if (random < battleChance + eliteChance + shopChance) {
-    return NODE_TYPES.SHOP.id;
-  } else if (random < battleChance + eliteChance + shopChance + restChance) {
-    return NODE_TYPES.REST.id;
-  } else {
-    return NODE_TYPES.EVENT.id;
-  }
+  let cumulativeChance = 0;
+
+  cumulativeChance += battleChance;
+  if (random < cumulativeChance) return NODE_TYPES.BATTLE.id;
+
+  cumulativeChance += eliteChance;
+  if (random < cumulativeChance) return NODE_TYPES.ELITE.id;
+
+  cumulativeChance += shopChance;
+  if (random < cumulativeChance) return NODE_TYPES.SHOP.id;
+
+  cumulativeChance += restChance;
+  if (random < cumulativeChance) return NODE_TYPES.REST.id;
+
+  cumulativeChance += eventChance;
+  if (random < cumulativeChance) return NODE_TYPES.EVENT.id;
+
+  return NODE_TYPES.TREASURE.id;
 }
 
 // Helper function to shuffle an array
@@ -1520,6 +1534,11 @@ function processCurrentNode() {
       showEvent();
       break;
 
+    case NODE_TYPES.TREASURE.id:
+      // Show treasure chest
+      showTreasure();
+      break;
+
     default:
       console.error("Unknown node type:", currentNode.type);
       // Fall back to a battle
@@ -1547,22 +1566,24 @@ function showShop() {
   // Set context attribute for shop-specific styling
   itemSelection.setAttribute("data-context", "shop");
 
+  const existingOtherImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
+  existingOtherImages.forEach((img) => img.remove());
   // Add shop image container
   // Remove any existing shop image to prevent duplicates
-  const existingShopImage = document.querySelector(".shop-image-container");
-  if (existingShopImage) {
-    existingShopImage.remove();
-  }
+  // const existingShopImage = document.querySelector(".shop-image-container");
+  // if (existingShopImage) {
+  //   existingShopImage.remove();
+  // }
 
-  const existingRestImage = document.querySelector(".rest-site-image");
-  if (existingRestImage) {
-    existingRestImage.remove();
-  }
+  // const existingRestImage = document.querySelector(".rest-site-image");
+  // if (existingRestImage) {
+  //   existingRestImage.remove();
+  // }
 
-  const existingEventImage = document.querySelector(".event-image-container");
-  if (existingEventImage) {
-    existingEventImage.remove();
-  }
+  // const existingEventImage = document.querySelector(".event-image-container");
+  // if (existingEventImage) {
+  //   existingEventImage.remove();
+  // }
 
   // Create new shop image container
   const shopImageContainer = document.createElement("div");
@@ -1907,22 +1928,25 @@ function showEvent() {
   document.getElementById("item-selection-heading").textContent = event.name;
   document.getElementById("item-selection-message").textContent = event.description;
 
-  // Remove any existing images to prevent duplicates or overlap
-  const existingEventImage = itemSelection.querySelector(".event-image-container");
-  if (existingEventImage) {
-    console.log(6);
-    existingEventImage.remove();
-  }
+  const existingOtherImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
+  existingOtherImages.forEach((img) => img.remove());
 
-  const existingRestImage = itemSelection.querySelector(".rest-site-image");
-  if (existingRestImage) {
-    existingRestImage.remove();
-  }
+  // // Remove any existing images to prevent duplicates or overlap
+  // const existingEventImage = itemSelection.querySelector(".event-image-container");
+  // if (existingEventImage) {
+  //   console.log(6);
+  //   existingEventImage.remove();
+  // }
 
-  const existingShopImage = itemSelection.querySelector(".shop-image-container");
-  if (existingShopImage) {
-    existingShopImage.remove();
-  }
+  // const existingRestImage = itemSelection.querySelector(".rest-site-image");
+  // if (existingRestImage) {
+  //   existingRestImage.remove();
+  // }
+
+  // const existingShopImage = itemSelection.querySelector(".shop-image-container");
+  // if (existingShopImage) {
+  //   existingShopImage.remove();
+  // }
 
   // Create and insert the event image
   const imageContainer = document.createElement("div");
@@ -2376,4 +2400,118 @@ function calculateEnemyDamage(playerAction, enemyAction) {
   }
 
   return !isNaN(damage) ? Number(damage) : 0;
+}
+
+// Show treasure chest with item options
+function showTreasure() {
+  // Hide other screens
+  document.getElementById("battle-screen").classList.add("hidden");
+  document.getElementById("game-over").classList.add("hidden");
+
+  // Show the item selection screen
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.classList.remove("hidden");
+
+  // Set context attribute for treasure-specific styling
+  itemSelection.setAttribute("data-context", "treasure");
+
+  // Update the heading and description
+  document.getElementById("item-selection-heading").textContent = "Treasure Chest";
+  document.getElementById("item-selection-message").textContent = "You found a treasure chest! Select one item to add to your inventory:";
+
+  const existingOtherImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
+  existingOtherImages.forEach((img) => img.remove());
+
+  // // Remove any existing images to prevent duplicates or overlap
+  // const existingEventImage = itemSelection.querySelector(".event-image-container");
+  // if (existingEventImage) {
+  //   existingEventImage.remove();
+  // }
+
+  // const existingRestImage = itemSelection.querySelector(".rest-site-image");
+  // if (existingRestImage) {
+  //   existingRestImage.remove();
+  // }
+
+  // const existingShopImage = itemSelection.querySelector(".shop-image-container");
+  // if (existingShopImage) {
+  //   existingShopImage.remove();
+  // }
+
+  // Create and insert the treasure image
+  const imageContainer = document.createElement("div");
+  imageContainer.className = "event-image-container";
+  imageContainer.setAttribute("data-event", "treasure");
+
+  // Insert the image after the message but before the item options
+  const message = document.getElementById("item-selection-message");
+  message.insertAdjacentElement("afterend", imageContainer);
+
+  // Add console log for debugging
+  console.log("Treasure chest opened");
+
+  // Clear the options container
+  const itemOptions = document.getElementById("item-options");
+  itemOptions.innerHTML = "";
+  itemOptions.className = "event-options";
+
+  // Create combined item pool from ITEMS and RELICS
+  const combinedPool = [...ITEMS, ...RELICS];
+
+  // Get 3 random items from the combined pool
+  const treasureItems = getRandomUniqueItems(3, combinedPool);
+
+  // Display items as options
+  treasureItems.forEach((item) => {
+    const itemElement = document.createElement("div");
+    itemElement.className = "item-option";
+
+    // Add relic class if it's a relic
+    if (RELICS.includes(item)) {
+      itemElement.classList.add("relic");
+    }
+
+    const itemName = document.createElement("h3");
+    itemName.textContent = item.name;
+    itemElement.appendChild(itemName);
+
+    const itemDesc = document.createElement("p");
+    itemDesc.textContent = item.description;
+    itemElement.appendChild(itemDesc);
+
+    // Add applies-to info if present
+    if (item.appliesTo) {
+      const appliesTo = document.createElement("div");
+      appliesTo.className = "item-applies-to";
+      appliesTo.setAttribute("data-applies-to", item.appliesTo);
+      appliesTo.textContent = `Applies to: ${item.appliesTo}`;
+      itemElement.appendChild(appliesTo);
+    }
+
+    // Add click handler
+    itemElement.onclick = () => {
+      // Add selected item to inventory
+      gameState.player.inventory.push({ ...item });
+
+      // Show confirmation message
+      const resultElement = document.createElement("p");
+      resultElement.className = "event-result";
+      resultElement.textContent = `You've acquired ${item.name}!`;
+
+      // Clear options and show result
+      itemOptions.innerHTML = "";
+      itemOptions.appendChild(resultElement);
+
+      // Continue to next node after a delay
+      setTimeout(() => {
+        resultElement.classList.add("fade-out");
+        setTimeout(() => {
+          updateAvailableNodes();
+          showNodeSelection();
+        }, 1000);
+      }, 2000);
+    };
+
+    itemOptions.appendChild(itemElement);
+  });
 }

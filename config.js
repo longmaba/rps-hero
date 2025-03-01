@@ -36,7 +36,7 @@ const ENEMY_TYPES = [
         : Array(5)
             .fill()
             .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]),
-    maxHp: 120,
+    maxHp: 150,
     isElite: true,
     eliteAbility: "Copies moves with 20% more power",
   },
@@ -47,7 +47,7 @@ const ENEMY_TYPES = [
       Array(5)
         .fill()
         .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]),
-    maxHp: 120,
+    maxHp: 150,
     isElite: true,
     eliteAbility: "Resolves each move twice for double damage",
   },
@@ -85,7 +85,7 @@ const ENEMY_TYPES = [
 
       return Array(5).fill(counter);
     },
-    maxHp: 130,
+    maxHp: 150,
     isElite: true,
     eliteAbility: "Analyzes your strategy and counters it",
   },
@@ -194,7 +194,7 @@ const RELICS = [
     triggerMessage: (dmg) => {
       return `💥 Lethal precision! Critical hit for ${dmg} damage!`;
     },
-    hasCritEffect: false, // Flag this as having a crit effect
+    hasCritEffect: true, // Flag this as having a crit effect
   },
   {
     name: "Vampire Blade",
@@ -255,7 +255,7 @@ const RELICS = [
     isOneTimeEffect: true,
   },
   {
-    name: "Training Manual",
+    name: "Training Script",
     type: "scaling",
     effect: (baseValue) => baseValue + 10,
     description: "Permanently increases base damage by 10 after each battle",
@@ -388,35 +388,36 @@ const NODE_TYPES = {
     name: "Battle",
     description: "Face an enemy in RPS combat",
     icon: "⚔️",
-    frequency: 0.6, // 60% chance to appear
   },
   ELITE: {
     id: "elite",
     name: "Elite Battle",
     description: "Face a powerful enemy with unique abilities",
     icon: "👹",
-    frequency: 0.15, // 15% chance to appear
   },
   SHOP: {
     id: "shop",
     name: "Shop",
     description: "Buy items with your coins",
     icon: "🛒",
-    frequency: 0.1, // 10% chance to appear
   },
   REST: {
     id: "rest",
     name: "Rest Site",
     description: "Heal or upgrade an item",
     icon: "🏕️",
-    frequency: 0.1, // 10% chance to appear
   },
   EVENT: {
     id: "event",
     name: "Mystery Event",
     description: "Encounter a random event with various outcomes",
     icon: "❓",
-    frequency: 0.05, // 5% chance to appear
+  },
+  TREASURE: {
+    id: "treasure",
+    name: "Treasure Chest",
+    description: "Find valuable items to aid your journey",
+    icon: "📦",
   },
 };
 
@@ -472,21 +473,6 @@ const SHOP_ITEMS = [
     temporaryEffect: true,
     duration: 1,
   },
-
-  // Uncommon items
-  {
-    name: "Debuff Remover",
-    description: "Removes your current debuff",
-    price: 40,
-    rarity: "uncommon",
-    effect: (gameState) => {
-      const hadDebuff = gameState.activeDebuff !== null;
-      gameState.activeDebuff = null;
-      return hadDebuff;
-    },
-    triggerMessage: (removed) => (removed ? "Debuff successfully removed!" : "You had no debuff to remove!"),
-    oneTimeUse: true,
-  },
   {
     name: "Emergency Shield",
     description: "Prevents the next 30 damage you would take",
@@ -534,17 +520,17 @@ const EVENTS = [
   {
     name: "Cursed Forge",
     type: "cursed_forge",
-    description: "A mysterious forge emanates an eerie glow. Do you want to sacrifice 15 HP to empower your Rock attacks?",
+    description: "A mysterious forge emanates an eerie glow. Do you want to sacrifice 20% of your HP to empower your Rock attacks?",
     choices: [
       {
-        text: "Sacrifice HP (Lose 15 HP, Rock deals +15 damage for the rest of the run)",
+        text: "Sacrifice HP (Lose 20% of current HP, Rock deals +15 damage for the rest of the run)",
         effect: (gameState) => {
           // Reduce HP
-          gameState.player.hp = Math.max(1, gameState.player.hp - 15);
+          gameState.player.hp = Math.max(1, gameState.player.hp - gameState.player.maxHp * 0.2);
 
           // Add rock damage boost item
           gameState.player.inventory.push({
-            name: "Molten Gauntlet",
+            name: "Iron Fist",
             description: "Your Rock attacks deal 15 additional damage.",
             type: "actionModifier",
             appliesTo: "Rock",
@@ -568,23 +554,23 @@ const EVENTS = [
     description: "A hooded figure offers you a choice: sacrifice some of your maximum HP for an immediate advantage.",
     choices: [
       {
-        text: "Trade 10 Max HP for 50 coins",
+        text: "Trade 50 Max HP for 100 coins",
         effect: (gameState) => {
           // Reduce max HP
-          gameState.player.maxHp -= 10;
+          gameState.player.maxHp -= 50;
           gameState.player.hp = Math.min(gameState.player.hp, gameState.player.maxHp);
 
           // Add coins
-          gameState.player.coins += 50;
+          gameState.player.coins += 100;
 
           return "The trader hands you a bag of coins. You feel slightly weaker but richer!";
         },
       },
       {
-        text: "Trade 5 Max HP for a random item",
+        text: "Trade 30 Max HP for a random item",
         effect: (gameState) => {
           // Reduce max HP
-          gameState.player.maxHp -= 5;
+          gameState.player.maxHp -= 30;
           gameState.player.hp = Math.min(gameState.player.hp, gameState.player.maxHp);
 
           // Give random item
@@ -674,6 +660,8 @@ const GAME_CONFIG = {
     shopFrequency: 0.15, // Chance for a shop node
     restFrequency: 0.15, // Chance for a rest node
     eventFrequency: 0.1, // Chance for an event node
+    eliteFrequency: 0.15, // Chance for an elite battle node
+    treasureFrequency: 0.2, // Chance for a treasure node
     bossNodeIndex: 15, // The node index of the final boss
   },
   // Rest site configuration
