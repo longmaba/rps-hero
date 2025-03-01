@@ -52,6 +52,9 @@ let gameState = {
   playerAllActions: [], // Track all player actions for elite enemy AI
   temporaryItems: [], // Items that are only active for a specific duration
   burnEffects: [], // Track any burn effects applied to enemies
+  playerDebuffs: [], // Track any debuffs applied to the player
+  adaptiveMemory: null, // Track adaptive memory for Adaptive Learner enemies
+  roundResults: [], // Track round results for Adaptive Learner
 };
 
 // Wait for the DOM to be fully loaded
@@ -104,8 +107,16 @@ function initBattle(isEliteBattle = false) {
   // Process any burn effects before starting a new battle
   gameState.burnEffects = [];
 
+  // Clear any player debuffs from previous battles
+  gameState.playerDebuffs = [];
+
+  // Clear adaptive memory for Adaptive Learner enemies
+  gameState.adaptiveMemory = null;
+
+  // Reset round results tracking
+  gameState.roundResults = [];
+
   // Select enemy type based on node type
-  let enemyTypeIndex = 0; // Default to Basic (index 0)
   let enemyType;
 
   const currentNode = gameState.map[gameState.currentNodeIndex];
@@ -115,12 +126,34 @@ function initBattle(isEliteBattle = false) {
     const eliteEnemies = ENEMY_TYPES.filter((enemy) => enemy.isElite);
     enemyType = eliteEnemies[Math.floor(Math.random() * eliteEnemies.length)];
   } else if (gameState.runProgress === gameState.maxBattles || (currentNode && currentNode.isBoss)) {
-    enemyTypeIndex = 2; // Boss type (index 2)
-    enemyType = ENEMY_TYPES[enemyTypeIndex];
+    // Boss enemy
+    enemyType = ENEMY_TYPES.find((enemy) => enemy.type === "Boss");
   } else {
-    // Regular enemy - either Basic or Mimic
-    enemyTypeIndex = Math.random() < 0.5 ? 0 : 1; // 50% chance for each
-    enemyType = ENEMY_TYPES[enemyTypeIndex];
+    // Regular enemy - wider selection including new enemy types
+    const regularEnemies = ENEMY_TYPES.filter((enemy) => !enemy.isElite && enemy.type !== "Boss");
+
+    // Weight selection based on difficulty
+    // More likely to encounter basic enemies early, advanced enemies later
+    let availableEnemies;
+    const progressPercentage = gameState.runProgress / gameState.maxBattles;
+
+    if (progressPercentage < 0.3) {
+      // Early game - mostly basic enemies
+      availableEnemies = regularEnemies.filter((enemy) => ["Basic", "Mimic"].includes(enemy.type));
+    } else if (progressPercentage < 0.6) {
+      // Mid game - introduce Predictor and Shielded
+      availableEnemies = regularEnemies.filter((enemy) => ["Basic", "Mimic", "Predictor", "Shielded"].includes(enemy.type));
+    } else {
+      // Late game - all enemy types available with higher chance for advanced types
+      availableEnemies = regularEnemies;
+
+      // Increase chance of difficult enemies in late game
+      if (Math.random() < 0.6) {
+        availableEnemies = availableEnemies.filter((enemy) => !["Basic", "Mimic"].includes(enemy.type));
+      }
+    }
+
+    enemyType = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
   }
 
   // Calculate scaled HP based on runProgress
@@ -215,6 +248,45 @@ function resolveRound() {
     gameState.activeDebuff.roundEffect(gameState);
   }
 
+  // Apply player debuffs from Debilitator enemy
+  if (gameState.playerDebuffs && gameState.playerDebuffs.length > 0) {
+    // Apply active debuffs
+    gameState.playerDebuffs.forEach((debuff, index) => {
+      // Apply debuff effect
+      if (debuff.type === "damage_reduction") {
+        // Log the debuff effect
+        const log = document.getElementById("resolution-log");
+        const debuffMsg = document.createElement("p");
+        debuffMsg.className = "debuff-effect";
+        debuffMsg.textContent = `💔 ${debuff.name}: Your damage is reduced by ${Math.round(debuff.value * 100)}%`;
+        log.appendChild(debuffMsg);
+      } else if (debuff.type === "move_confusion") {
+        // Log the debuff effect
+        const log = document.getElementById("resolution-log");
+        const debuffMsg = document.createElement("p");
+        debuffMsg.className = "debuff-effect";
+        debuffMsg.textContent = `🌀 ${debuff.name}: ${debuff.effect}`;
+        log.appendChild(debuffMsg);
+      }
+
+      // Reduce debuff duration
+      debuff.duration--;
+
+      // Remove expired debuffs
+      if (debuff.duration <= 0) {
+        // Log that debuff has expired
+        const log = document.getElementById("resolution-log");
+        const expireMsg = document.createElement("p");
+        expireMsg.className = "debuff-expired";
+        expireMsg.textContent = `✨ ${debuff.name} has worn off!`;
+        log.appendChild(expireMsg);
+
+        // Remove from array
+        gameState.playerDebuffs.splice(index, 1);
+      }
+    });
+  }
+
   // Process any burn effects
   if (gameState.burnEffects && gameState.burnEffects.length > 0) {
     // Apply burn damage to the enemy
@@ -274,6 +346,24 @@ function resolveRound() {
       const playerAction = playerActions[currentIndex];
       const enemyAction = enemyActions[currentIndex];
 
+      // Apply move confusion from debuffs if applicable
+      let modifiedPlayerAction = playerAction;
+      if (gameState.playerDebuffs) {
+        const confusionDebuff = gameState.playerDebuffs.find((d) => d.type === "move_confusion");
+        if (confusionDebuff && Math.random() < confusionDebuff.value) {
+          // 25% chance to change move to a random one
+          const moves = ["Rock", "Paper", "Scissors"];
+          modifiedPlayerAction = moves[Math.floor(Math.random() * moves.length)];
+
+          // Log the confusion effect
+          const log = document.getElementById("resolution-log");
+          const confusionMsg = document.createElement("p");
+          confusionMsg.className = "debuff-effect";
+          confusionMsg.textContent = `🌀 Confusion changes your ${playerAction} to ${modifiedPlayerAction}!`;
+          log.appendChild(confusionMsg);
+        }
+      }
+
       // Reveal this enemy move with animation
       const enemyActionElement = document.querySelector(`#enemy-actions [data-index="${currentIndex}"]`);
       if (enemyActionElement) {
@@ -286,18 +376,31 @@ function resolveRound() {
       if (!gameState.playerAllActions) {
         gameState.playerAllActions = [];
       }
-      gameState.playerAllActions.push(playerAction);
+      gameState.playerAllActions.push(modifiedPlayerAction);
 
       // Create a result element for this comparison
       const resultElem = document.createElement("p");
+      const log = document.getElementById("resolution-log");
 
       // Modified damage calculation with NaN protection
       let playerDamage = Number(GAME_CONFIG.baseDamage) || 0;
       let enemyDamage = Number(GAME_CONFIG.baseDamage) || 0;
 
+      // Apply damage reduction debuff if applicable
+      let damageMultiplier = 1;
+      if (gameState.playerDebuffs) {
+        const damageReductionDebuff = gameState.playerDebuffs.find((d) => d.type === "damage_reduction");
+        if (damageReductionDebuff) {
+          damageMultiplier = 1 - damageReductionDebuff.value; // Reduce damage by debuff value (e.g., 0.25)
+        }
+      }
+
       // Apply item effects with fallback to 0
-      playerDamage = Math.max(0, calculatePlayerDamage(playerAction, enemyAction)) || 0;
-      enemyDamage = Math.max(0, calculateEnemyDamage(playerAction, enemyAction)) || 0;
+      playerDamage = Math.max(0, calculatePlayerDamage(modifiedPlayerAction, enemyAction)) || 0;
+      enemyDamage = Math.max(0, calculateEnemyDamage(modifiedPlayerAction, enemyAction)) || 0;
+
+      // Apply damage reduction from debuff
+      playerDamage = Math.floor(playerDamage * damageMultiplier);
 
       // Ensure we have valid numbers
       if (isNaN(playerDamage)) playerDamage = 0;
@@ -308,17 +411,24 @@ function resolveRound() {
       let playerWins = false;
       let enemyWins = false;
 
-      if (playerAction === enemyAction) {
+      // Store round result for Adaptive Learner
+      if (!gameState.roundResults) {
+        gameState.roundResults = [];
+      }
+
+      if (modifiedPlayerAction === enemyAction) {
         result = "Tie!";
         resultElem.className = "tie";
+        gameState.roundResults.push("tie");
       } else if (
-        (playerAction === "Rock" && enemyAction === "Scissors") ||
-        (playerAction === "Paper" && enemyAction === "Rock") ||
-        (playerAction === "Scissors" && enemyAction === "Paper")
+        (modifiedPlayerAction === "Rock" && enemyAction === "Scissors") ||
+        (modifiedPlayerAction === "Paper" && enemyAction === "Rock") ||
+        (modifiedPlayerAction === "Scissors" && enemyAction === "Paper")
       ) {
         result = "You win!";
         resultElem.className = "player-win";
         playerWins = true;
+        gameState.roundResults.push("win");
 
         // Apply scaling based on battle number
         playerDamage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
@@ -411,6 +521,7 @@ function resolveRound() {
         result = "Enemy wins!";
         resultElem.className = "enemy-win";
         enemyWins = true;
+        gameState.roundResults.push("lose");
 
         // Calculate enemy damage based on round progression
         enemyDamage += (gameState.runProgress - 1) * gameState.enemyScaling.damageIncreasePerBattle;
@@ -454,10 +565,23 @@ function resolveRound() {
 
         // Update player HP display
         updateHP("player", gameState.player.hp);
+
+        // Check if the enemy is a Debilitator and try to apply a debuff
+        if (gameState.enemy.type.type === "Debilitator" && gameState.enemy.type.applyDebuff) {
+          const appliedDebuff = gameState.enemy.type.applyDebuff(gameState, "lose");
+
+          // If a debuff was applied, log it
+          if (appliedDebuff) {
+            const debuffMsg = document.createElement("p");
+            debuffMsg.className = "enemy-effect";
+            debuffMsg.textContent = `☠️ ${gameState.enemy.type.type} applies ${appliedDebuff.name}: ${appliedDebuff.effect}`;
+            log.appendChild(debuffMsg);
+          }
+        }
       }
 
       // Display the result
-      resultElem.innerHTML = `Player: ${emojiMap[playerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}`;
+      resultElem.innerHTML = `Player: ${emojiMap[modifiedPlayerAction]} vs ${getEnemyName()}: ${emojiMap[enemyAction]} - ${result}`;
       // Only show damage numbers if it's not a tie, and only show the side that takes damage
       if (result !== "Tie!") {
         if (playerWins) {
@@ -570,8 +694,51 @@ function resolveRound() {
     gameState.currentRound++;
     document.getElementById("round-number").textContent = gameState.currentRound;
 
+    // Log a round separator
+    const log = document.getElementById("resolution-log");
+    const roundSeparator = document.createElement("p");
+    roundSeparator.className = "round-separator";
+    roundSeparator.textContent = `---- Round ${gameState.currentRound} ----`;
+    log.appendChild(roundSeparator);
+
+    // Special handling for Berserker enemy - update rage level message
+    if (gameState.enemy.type.type === "Berserker" || gameState.enemy.type.type === "Elite Berserker") {
+      const healthPercentage = gameState.enemy.hp / gameState.enemy.maxHp;
+      const enrageLevel = 1 - healthPercentage;
+
+      if (enrageLevel > 0.3) {
+        const rageMsg = document.createElement("p");
+        rageMsg.className = "enemy-effect";
+
+        let rageText = "🔥 ";
+        if (enrageLevel > 0.7) {
+          rageText += "The Berserker is EXTREMELY enraged!";
+        } else if (enrageLevel > 0.5) {
+          rageText += "The Berserker is highly enraged!";
+        } else {
+          rageText += "The Berserker grows angry!";
+        }
+
+        rageMsg.textContent = rageText;
+        log.appendChild(rageMsg);
+      }
+    }
+
     // Get new actions for the enemy
     gameState.enemy.actions = gameState.enemy.type.getActions(gameState);
+
+    // Log special messages for certain enemy types
+    if (gameState.enemy.type.type === "Adaptive Learner" && gameState.currentRound > 2) {
+      const adaptMsg = document.createElement("p");
+      adaptMsg.className = "enemy-effect";
+      adaptMsg.textContent = "🧠 The Adaptive Learner analyzes your strategy...";
+      log.appendChild(adaptMsg);
+    } else if (gameState.enemy.type.type === "Predictor" && gameState.playerAllActions && gameState.playerAllActions.length > 5) {
+      const predictMsg = document.createElement("p");
+      predictMsg.className = "enemy-effect";
+      predictMsg.textContent = "👁️ The Predictor anticipates your next move...";
+      log.appendChild(predictMsg);
+    }
 
     // Re-enable the action buttons
     document.querySelectorAll("#actions button").forEach((btn) => {
@@ -808,6 +975,9 @@ function startNewRun() {
     playerAllActions: [], // Track all player actions for elite enemy AI
     temporaryItems: [], // Items that are only active for a specific duration
     burnEffects: [], // Track any burn effects applied to enemies
+    playerDebuffs: [], // Track any debuffs applied to the player
+    adaptiveMemory: null, // Track adaptive memory for Adaptive Learner enemies
+    roundResults: [], // Track round results for Adaptive Learner
   };
 
   // Clear any remaining DOM elements
@@ -1700,7 +1870,7 @@ function showRestSite() {
   document.getElementById("item-selection-message").textContent = "Take a moment to recover and prepare for what lies ahead.";
 
   // Remove existing images first
-  const existingImages = document.querySelectorAll(".rest-site-image, .event-image-container");
+  const existingImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
   existingImages.forEach((img) => img.remove());
   console.log(5);
 
@@ -2389,11 +2559,76 @@ function calculateEnemyDamage(playerAction, enemyAction) {
   // Apply enemy scaling
   damage += (gameState.runProgress - 1) * GAME_CONFIG.enemyScaling.damageIncreasePerBattle;
 
-  // Apply conditional modifiers
+  // Apply elite bonus damage if applicable
+  if (gameState.enemy.type.isElite) {
+    damage = Math.floor(damage * 1.2);
+  }
+
+  // Apply Berserker damage multiplier if applicable
+  if (
+    (gameState.enemy.type.type === "Berserker" || gameState.enemy.type.type === "Elite Berserker") &&
+    gameState.enemy.type.getDamageMultiplier &&
+    result === "lose"
+  ) {
+    const multiplier = gameState.enemy.type.getDamageMultiplier(gameState);
+    damage = Math.floor(damage * multiplier);
+
+    // Log the berserker's damage increase
+    const log = document.getElementById("resolution-log");
+    if (log) {
+      const rageMsg = document.createElement("p");
+      rageMsg.className = "enemy-effect";
+      rageMsg.textContent = `🔥 ${gameState.enemy.type.type} rage increases damage to ${damage}!`;
+      log.appendChild(rageMsg);
+    }
+  }
+
+  // Apply Shielded enemy's blocking if applicable
+  if (gameState.enemy.type.type === "Shielded" && gameState.enemy.type.hasShield && gameState.enemy.type.shieldBlock && result === "lose") {
+    // Check if shield blocks the attack completely
+    if (gameState.enemy.type.shieldBlock(playerAction)) {
+      // Log the shield block
+      const log = document.getElementById("resolution-log");
+      if (log) {
+        const blockMsg = document.createElement("p");
+        blockMsg.className = "enemy-effect";
+        blockMsg.textContent = `🛡️ Shield completely blocks your ${playerAction} attack!`;
+        log.appendChild(blockMsg);
+      }
+      return 0; // Attack completely blocked
+    }
+    // Partial damage reduction
+    else if (gameState.enemy.type.damageReduction) {
+      const reducedDamage = Math.floor(damage * (1 - gameState.enemy.type.damageReduction));
+
+      // Log the damage reduction
+      const log = document.getElementById("resolution-log");
+      if (log) {
+        const reduceMsg = document.createElement("p");
+        reduceMsg.className = "enemy-effect";
+        reduceMsg.textContent = `🛡️ Shield reduces damage from ${damage} to ${reducedDamage}!`;
+        log.appendChild(reduceMsg);
+      }
+
+      damage = reducedDamage;
+    }
+  }
+
+  // Apply conditional modifiers from player items
   if (result === "lose") {
     gameState.player.inventory.forEach((item) => {
-      if (item.type === "conditionalModifier" && item.condition === "lose" && item.appliesTo === playerAction) {
+      if (item.type === "conditionalModifier" && item.condition === "lose" && playerAction === item.appliesTo) {
         const modifiedDamage = item.effect(damage);
+
+        // Log the effect
+        const log = document.getElementById("resolution-log");
+        if (log && item.triggerMessage) {
+          const effectMsg = document.createElement("p");
+          effectMsg.className = "debuff-effect";
+          effectMsg.textContent = item.triggerMessage(modifiedDamage);
+          log.appendChild(effectMsg);
+        }
+
         damage = Number(modifiedDamage) || damage; // Fallback to original if NaN
       }
     });
