@@ -1870,7 +1870,7 @@ function showRestSite() {
   document.getElementById("item-selection-message").textContent = "Take a moment to recover and prepare for what lies ahead.";
 
   // Remove existing images first
-  const existingImages = document.querySelectorAll(".rest-site-image, .event-image-container");
+  const existingImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
   existingImages.forEach((img) => img.remove());
   console.log(5);
 
@@ -2617,8 +2617,18 @@ function calculateEnemyDamage(playerAction, enemyAction) {
   // Apply conditional modifiers from player items
   if (result === "lose") {
     gameState.player.inventory.forEach((item) => {
-      if (item.type === "conditionalModifier" && item.condition === "lose" && item.appliesTo === playerAction) {
+      if (item.type === "conditionalModifier" && item.condition === "lose" && playerAction === item.appliesTo) {
         const modifiedDamage = item.effect(damage);
+
+        // Log the effect
+        const log = document.getElementById("resolution-log");
+        if (log && item.triggerMessage) {
+          const effectMsg = document.createElement("p");
+          effectMsg.className = "debuff-effect";
+          effectMsg.textContent = item.triggerMessage(modifiedDamage);
+          log.appendChild(effectMsg);
+        }
+
         damage = Number(modifiedDamage) || damage; // Fallback to original if NaN
       }
     });
