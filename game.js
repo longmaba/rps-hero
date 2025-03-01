@@ -597,6 +597,9 @@ function resolveRound() {
       }
     });
 
+    // Update inventory display to make Health Potions clickable again
+    updateInventoryDisplay();
+
     // Delay before clearing and recreating enemy moves
     setTimeout(() => {
       // Clear enemy moves with animation
@@ -1489,6 +1492,8 @@ function processCurrentNode() {
       document.getElementById("battle-screen").classList.remove("hidden");
       // Initialize battle
       initBattle(false);
+      // Update inventory to make Health Potions clickable
+      updateInventoryDisplay();
       break;
 
     case NODE_TYPES.ELITE.id:
@@ -1496,6 +1501,8 @@ function processCurrentNode() {
       document.getElementById("battle-screen").classList.remove("hidden");
       // Initialize elite battle
       initBattle(true);
+      // Update inventory to make Health Potions clickable
+      updateInventoryDisplay();
       break;
 
     case NODE_TYPES.SHOP.id:
@@ -1518,6 +1525,8 @@ function processCurrentNode() {
       // Fall back to a battle
       document.getElementById("battle-screen").classList.remove("hidden");
       initBattle(false);
+      // Update inventory to make Health Potions clickable
+      updateInventoryDisplay();
   }
 
   // When leaving any screen
@@ -1527,26 +1536,55 @@ function processCurrentNode() {
 
 // Show shop interface
 function showShop() {
-  // Hide other screens and show item selection
+  // Hide other screens
   document.getElementById("battle-screen").classList.add("hidden");
   document.getElementById("game-over").classList.add("hidden");
 
+  // Show the item selection screen
   const itemSelection = document.getElementById("item-selection");
   itemSelection.classList.remove("hidden");
 
-  // Set shop heading
+  // Set context attribute for shop-specific styling
+  itemSelection.setAttribute("data-context", "shop");
+
+  // Add shop image container
+  // Remove any existing shop image to prevent duplicates
+  const existingShopImage = document.querySelector(".shop-image-container");
+  if (existingShopImage) {
+    existingShopImage.remove();
+  }
+
+  const existingRestImage = document.querySelector(".rest-site-image");
+  if (existingRestImage) {
+    existingRestImage.remove();
+  }
+
+  const existingEventImage = document.querySelector(".event-image-container");
+  if (existingEventImage) {
+    existingEventImage.remove();
+  }
+
+  // Create new shop image container
+  const shopImageContainer = document.createElement("div");
+  shopImageContainer.className = "shop-image-container";
+  console.log("Added shop image container");
+
+  // Insert the shop image container into the DOM
+  const messageElement = document.getElementById("item-selection-message");
+  messageElement.parentNode.insertBefore(shopImageContainer, messageElement.nextSibling);
+
+  // Set up shop UI
   document.getElementById("item-selection-heading").textContent = "Shop";
-  document.getElementById(
-    "item-selection-message"
-  ).textContent = `Select an item to purchase with your coins (You have ${gameState.player.coins} coins):`;
+  document.getElementById("item-selection-message").textContent = `Purchase items with your coins (You have ${gameState.player.coins} coins).`;
+
+  // Clear previous options
+  const itemOptionsContainer = document.getElementById("item-options");
+  itemOptionsContainer.innerHTML = "";
 
   // Get 4 random shop items
   const shopItems = getRandomUniqueItems(4, SHOP_ITEMS);
 
   // Display shop items
-  const itemOptionsContainer = document.getElementById("item-options");
-  itemOptionsContainer.innerHTML = "";
-
   shopItems.forEach((item) => {
     const itemElement = document.createElement("div");
     itemElement.className = `item-option ${item.rarity || "common"}`;
@@ -1747,6 +1785,108 @@ function showRestSite() {
   itemOptionsContainer.appendChild(continueElement);
 }
 
+// Function to display upgrade options for items at rest sites
+function showUpgradeOptions(upgradeableItems) {
+  // Get the item options container
+  const itemOptionsContainer = document.getElementById("item-options");
+
+  // Clear previous options
+  itemOptionsContainer.innerHTML = "";
+
+  // Update heading and message
+  document.getElementById("item-selection-heading").textContent = "Forge: Select Item to Upgrade";
+  document.getElementById("item-selection-message").textContent = "Choose one item to make 50% more powerful.";
+
+  // Display each upgradeable item as an option
+  upgradeableItems.forEach((item, index) => {
+    const itemElement = document.createElement("div");
+    itemElement.className = "item-option";
+
+    const itemName = document.createElement("h3");
+    itemName.textContent = item.name;
+    itemElement.appendChild(itemName);
+
+    const itemDesc = document.createElement("p");
+    itemDesc.textContent = item.description;
+    itemElement.appendChild(itemDesc);
+
+    // Add applies-to info if present
+    if (item.appliesTo) {
+      const appliesTo = document.createElement("div");
+      appliesTo.className = "item-applies-to";
+      appliesTo.setAttribute("data-applies-to", item.appliesTo);
+      appliesTo.textContent = `Applies to: ${item.appliesTo}`;
+      itemElement.appendChild(appliesTo);
+    }
+
+    // Add click handler for upgrading
+    itemElement.onclick = () => {
+      // Make a copy of the item and enhance its effect
+      const upgradedItem = { ...item };
+      upgradedItem.upgraded = true;
+
+      // Enhance the effect based on item type
+      const originalEffect = item.effect;
+      upgradedItem.effect = function (param) {
+        // Call the original effect and enhance its result
+        const result = originalEffect(param);
+
+        // Different handling based on what the effect returns
+        if (typeof result === "number") {
+          // If effect returns a number (like damage), increase by 50%
+          return Math.floor(result * 1.5);
+        } else if (typeof result === "object" && result !== null) {
+          // If effect returns an object (like damage & crit info)
+          const enhancedResult = { ...result };
+          if ("finalDamage" in result) {
+            enhancedResult.finalDamage = Math.floor(result.finalDamage * 1.5);
+          }
+          return enhancedResult;
+        }
+
+        // Fall back to original result if we don't know how to enhance it
+        return result;
+      };
+
+      // Update the description to show it's upgraded
+      upgradedItem.description = `${item.description} (Upgraded: +50% effect)`;
+
+      // Replace the original item in the inventory
+      const itemIndex = gameState.player.inventory.findIndex((i) => i === item);
+      if (itemIndex !== -1) {
+        gameState.player.inventory[itemIndex] = upgradedItem;
+      }
+
+      // Show success message
+      const upgradeMessage = document.createElement("p");
+      upgradeMessage.className = "event-result";
+      upgradeMessage.textContent = `${item.name} has been upgraded! It's now 50% more powerful.`;
+
+      // Clear options and show the message
+      itemOptionsContainer.innerHTML = "";
+      itemOptionsContainer.appendChild(upgradeMessage);
+
+      // Automatically continue after a delay
+      setTimeout(() => {
+        upgradeMessage.classList.add("fade-out");
+        setTimeout(() => {
+          updateAvailableNodes();
+          showNodeSelection();
+        }, 1000);
+      }, 2000);
+    };
+
+    itemOptionsContainer.appendChild(itemElement);
+  });
+
+  // Add a back button
+  const backButton = document.createElement("div");
+  backButton.className = "item-option leave-shop";
+  backButton.innerHTML = "<h3>Return</h3><p>Go back to rest site options</p>";
+  backButton.onclick = () => showRestSite();
+  itemOptionsContainer.appendChild(backButton);
+}
+
 // Show a random event
 function showEvent() {
   // Hide other screens
@@ -1777,6 +1917,11 @@ function showEvent() {
   const existingRestImage = itemSelection.querySelector(".rest-site-image");
   if (existingRestImage) {
     existingRestImage.remove();
+  }
+
+  const existingShopImage = itemSelection.querySelector(".shop-image-container");
+  if (existingShopImage) {
+    existingShopImage.remove();
   }
 
   // Create and insert the event image
@@ -1940,6 +2085,18 @@ function updateInventoryDisplay() {
       itemSpan.setAttribute("data-upgraded", "true");
     }
 
+    // Make Health Potions clickable during battle preparation if player is not at max health
+    if (
+      item.name === "Health Potion" &&
+      document.getElementById("battle-screen") &&
+      !document.getElementById("battle-screen").classList.contains("hidden") &&
+      gameState.player.hp < gameState.player.maxHp
+    ) {
+      itemSpan.classList.add("usable-item");
+      itemSpan.title += " (Click to use)";
+      itemSpan.onclick = () => useHealthPotion(index);
+    }
+
     // Add comma separator between items
     if (index < gameState.player.inventory.length - 1) {
       itemSpan.textContent += ", ";
@@ -1975,6 +2132,50 @@ function updateInventoryDisplay() {
       inventoryElem.appendChild(itemSpan);
     });
   }
+}
+
+// Function to use a Health Potion during battle preparation
+function useHealthPotion(inventoryIndex) {
+  // Only allow using potions during battle preparation
+  if (document.getElementById("battle-screen").classList.contains("hidden")) {
+    return;
+  }
+
+  // Don't allow using potions if the resolve button is disabled (battle in progress)
+  const resolveBtn = document.getElementById("resolve-btn");
+  if (resolveBtn && resolveBtn.disabled && resolveBtn.textContent !== "⚔️ Fight!") {
+    // Battle is in progress, can't use potions
+    return;
+  }
+
+  // Get the potion from inventory
+  const potion = gameState.player.inventory[inventoryIndex];
+
+  if (potion.name !== "Health Potion") {
+    return;
+  }
+
+  // Apply the healing effect
+  const healAmount = potion.effect(gameState);
+
+  // Remove the potion from inventory
+  gameState.player.inventory.splice(inventoryIndex, 1);
+
+  // Update the HP display
+  updateHP("player", gameState.player.hp);
+
+  // Add a message to the battle log
+  const log = document.getElementById("resolution-log");
+  if (log) {
+    const potionMessage = document.createElement("p");
+    potionMessage.className = "player-win";
+    potionMessage.textContent = `🧪 ${potion.triggerMessage(healAmount)}`;
+    log.appendChild(potionMessage);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // Update the inventory display
+  updateInventoryDisplay();
 }
 
 // Function to set up the debuff display

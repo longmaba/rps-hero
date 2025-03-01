@@ -1147,6 +1147,31 @@ h1 {
     background-color: #000;
 }
 
+/* Shop image styling */
+.shop-image-container {
+    margin: 30px auto;
+    width: 500px;
+    height: 500px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 16px rgba(52, 152, 219, 0.3);
+    position: relative;
+    background: url('assets/events/shop.png');
+    background-size: cover;
+    background-position: center;
+    background-color: #000;
+    animation: shopGlow 3s infinite alternate;
+}
+
+@keyframes shopGlow {
+    0% {
+        box-shadow: 0 8px 16px rgba(52, 152, 219, 0.3);
+    }
+    100% {
+        box-shadow: 0 8px 24px rgba(52, 152, 219, 0.7);
+    }
+}
+
 /* Event type-specific background images */
 .event-image-container[data-event="cursed_forge"] {
     background: url('assets/events/cursed-forge.jpeg');
@@ -1598,7 +1623,7 @@ h1 {
 .rest-site-image {
     margin: 30px auto;
     width: 500px;
-    height: 350px;
+    height: 500px;
     border-radius: 10px;
     overflow: hidden;
     box-shadow: none !important;
@@ -1633,11 +1658,29 @@ h1 {
     margin-right: auto;
 }
 
+/* Style the shop context */
+#item-selection[data-context="shop"] #item-selection-heading {
+    color: #3498db;
+    text-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+    font-size: 28px;
+    margin-bottom: 5px;
+}
+
+#item-selection[data-context="shop"] #item-selection-message {
+    font-size: 18px;
+    margin-bottom: 20px;
+    background-color: rgba(52, 152, 219, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 /* Responsive design for smaller screens */
 @media (max-width: 768px) {
     .antd-steps {
-        width: 100%;
-        padding: 0 10px;
+        margin: 0 10px;
     }
     
     .antd-step-title {
@@ -1655,10 +1698,49 @@ h1 {
         right: calc(-50% + 19px);
         width: calc(100% - 38px);
     }
-
+    
     .antd-step-type-indicator {
         width: 18px;
         height: 18px;
         font-size: 10px;
     }
+    
+    .event-image-container,
+    .shop-image-container {
+        width: 90%;
+        height: 300px;
+    }
+}
+
+/* Usable item styling */
+.usable-item {
+    background-color: rgba(46, 204, 113, 0.3) !important;
+    border: 1px solid #2ecc71;
+    padding: 3px 6px !important;
+    border-radius: 4px;
+    cursor: pointer !important;
+    transition: all 0.2s ease;
+    position: relative;
+    animation: potionPulse 2s infinite alternate;
+}
+
+.usable-item:hover {
+    background-color: rgba(46, 204, 113, 0.5) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(46, 204, 113, 0.4);
+}
+
+.usable-item:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.usable-item::before {
+    content: "🧪";
+    margin-right: 3px;
+}
+
+@keyframes potionPulse {
+    0% { box-shadow: 0 0 3px rgba(46, 204, 113, 0.4); }
+    100% { box-shadow: 0 0 8px rgba(46, 204, 113, 0.8); }
 } 
