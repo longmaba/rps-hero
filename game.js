@@ -904,7 +904,7 @@ function updateHP(entity, newValue) {
   const maxHP = entity === "player" ? gameState.player.maxHp : gameState.enemy.maxHp;
   const percentage = (newValue / maxHP) * 100;
 
-  document.getElementById(`${entity}-hp`).textContent = newValue;
+  document.getElementById(`${entity}-hp`).textContent = `${newValue}/${maxHP}`;
   document.getElementById(`${entity}-hp-bar`).style.width = `${percentage}%`;
 }
 

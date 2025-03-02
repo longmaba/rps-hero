@@ -1804,6 +1804,15 @@ h1 {
     margin-right: 3px;
 }
 
+.log-header {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+#resolution-log {
+    margin: 20px 10px;
+}
+
 @keyframes potionPulse {
     0% { box-shadow: 0 0 3px rgba(46, 204, 113, 0.4); }
     100% { box-shadow: 0 0 8px rgba(46, 204, 113, 0.8); }

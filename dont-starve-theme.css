@@ -1,0 +1,493 @@
+/* Don't Starve Inspired Theme for RPS Roguelike */
+/* Add this CSS file alongside the original styles.css to transform the game's appearance */
+
+:root {
+  --ds-background: #1a1611;
+  --ds-paper: #e8dcc2;
+  --ds-paper-dark: #c9bea4;
+  --ds-ink: #000000;
+  --ds-accent: #b42a2a;
+  --ds-accent-light: #d44141;
+  --ds-accent-dark: #8c1f1f;
+  --ds-health: #7f9d54;
+  --ds-enemy-health: #c05c40;
+  --ds-button: #5c4937;
+  --ds-button-hover: #7c6a56;
+  --ds-rock: #8c7e6e;
+  --ds-paper: #d8caba;
+  --ds-scissors: #a09688;
+}
+
+/* Main container and backgrounds */
+body {
+  background-color: var(--ds-background);
+  color: var(--ds-paper);
+  font-family: 'Century Gothic', 'Futura', sans-serif;
+}
+
+#game-container {
+  background-color: rgba(26, 22, 17, 0.8);
+  border: 8px solid var(--ds-button);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+}
+
+h1, h2, h3 {
+  font-family: 'Amatic SC', 'Century Gothic', cursive;
+  color: var(--ds-paper);
+  text-shadow: 2px 2px 3px var(--ds-ink);
+  letter-spacing: 2px;
+}
+
+h1 {
+  font-size: 2.5em;
+  margin-bottom: 0.5em;
+  border-bottom: 3px solid var(--ds-accent);
+  padding-bottom: 10px;
+}
+
+/* HP Bars */
+.hp-bar {
+  background-color: #2a2318;
+  border: 2px solid #000;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+#player-hp-bar {
+  background-color: var(--ds-health);
+}
+
+#enemy-hp-bar {
+  background-color: var(--ds-enemy-health);
+}
+
+.hp-text {
+  color: var(--ds-paper);
+  text-shadow: 1px 1px 1px var(--ds-ink);
+}
+
+/* Battle Area */
+#battle-screen {
+  background-color: rgba(32, 28, 22, 0.7);
+  border: 4px solid var(--ds-button);
+  border-radius: 5px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+}
+
+/* Buttons */
+#actions button {
+  background-color: var(--ds-button);
+  color: var(--ds-paper);
+  border: 2px solid #000;
+  box-shadow: 
+    inset 0 0 5px rgba(255, 255, 255, 0.1),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+  font-family: 'Century Gothic', 'Futura', sans-serif;
+  text-shadow: 1px 1px 1px var(--ds-ink);
+  transition: all 0.2s;
+}
+
+#actions button:hover {
+  background-color: var(--ds-button-hover);
+  transform: translateY(-2px);
+  box-shadow: 
+    inset 0 0 8px rgba(255, 255, 255, 0.2),
+    0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+#actions button:active {
+  transform: translateY(1px);
+  box-shadow: 
+    inset 0 0 8px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+#actions button:disabled {
+  background-color: #3a3329;
+  color: #696254;
+  box-shadow: none;
+  text-shadow: none;
+  transform: none;
+}
+
+/* Action buttons - Rock Paper Scissors */
+#actions button:nth-child(1) {
+  background-color: var(--ds-rock);
+}
+
+#actions button:nth-child(2) {
+  background-color: var(--ds-paper);
+  color: #2a2318;
+}
+
+#actions button:nth-child(3) {
+  background-color: var(--ds-scissors);
+}
+
+#resolve-btn {
+  background-color: var(--ds-accent) !important;
+  font-weight: bold;
+}
+
+#resolve-btn:hover {
+  background-color: var(--ds-accent-light) !important;
+}
+
+/* Planned Actions */
+#planned-actions div, #enemy-actions div {
+  background-color: var(--ds-button);
+  border: 2px solid #000;
+  box-shadow: 
+    inset 0 0 5px rgba(255, 255, 255, 0.1),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+  color: var(--ds-paper);
+}
+
+#planned-actions div:hover {
+  background-color: var(--ds-accent);
+  box-shadow: 
+    inset 0 0 8px rgba(255, 255, 255, 0.2),
+    0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Battle Log */
+#resolution-log {
+  background-color: rgba(26, 22, 17, 0.8);
+  border: 3px solid var(--ds-button);
+  border-radius: 5px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+  color: var(--ds-paper);
+}
+
+#resolution-log p {
+  border-bottom: 1px solid #3a3329;
+}
+
+.player-win {
+  color: #8bae3d;
+}
+
+.enemy-win {
+  color: var(--ds-accent);
+}
+
+.tie {
+  color: #d8b94a;
+}
+
+/* Status area */
+#status {
+  background-color: rgba(32, 28, 22, 0.7);
+  border: 4px solid var(--ds-button);
+  border-radius: 5px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+}
+
+/* Map */
+#run-map {
+  background-color: rgba(32, 28, 22, 0.7);
+  border: 4px solid var(--ds-button);
+  border-radius: 5px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+  padding: 10px;
+  box-sizing: border-box; /* Ensure padding is included in width */
+}
+
+#node-map-container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 5px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  overflow: hidden; /* Prevent content from overflowing */
+}
+
+.map-node {
+  background-color: var(--ds-button);
+  border: 2px solid #000;
+  box-shadow: 
+    inset 0 0 5px rgba(255, 255, 255, 0.1),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+  color: var(--ds-paper);
+}
+
+.map-node:hover {
+  background-color: var(--ds-button-hover);
+  transform: scale(1.1);
+}
+
+.map-node[data-current="true"] {
+  background-color: var(--ds-accent);
+  box-shadow: 
+    0 0 10px var(--ds-accent),
+    0 0 15px var(--ds-accent-light);
+  animation: dsNodePulse 1.5s infinite alternate;
+}
+
+.node-path {
+  background-color: #3a3329;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.node-path.active {
+  background-color: #5c4937;
+  box-shadow: 0 0 5px var(--ds-button);
+}
+
+/* Item selection */
+#item-selection {
+  background-color: rgba(32, 28, 22, 0.95);
+  border: 4px solid var(--ds-button);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+}
+
+.item-option {
+  background-color: rgba(50, 43, 34, 0.9);
+  border: 3px solid var(--ds-button);
+  box-shadow: 
+    inset 0 0 10px rgba(0, 0, 0, 0.3),
+    0 3px 5px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.item-option:hover {
+  background-color: var(--ds-button-hover);
+  transform: translateY(-3px);
+  box-shadow: 
+    inset 0 0 10px rgba(0, 0, 0, 0.3),
+    0 6px 10px rgba(0, 0, 0, 0.5);
+}
+
+.item-option h3 {
+  color: var(--ds-paper);
+  border-bottom: 2px solid var(--ds-accent);
+  padding-bottom: 5px;
+}
+
+.item-option.rare {
+  background-color: rgba(59, 31, 31, 0.9);
+  border-color: var(--ds-accent);
+}
+
+.item-option.uncommon {
+  background-color: rgba(38, 52, 38, 0.9);
+  border-color: #5a7945;
+}
+
+.item-option.relic {
+  background-color: rgba(49, 39, 58, 0.9);
+  border-color: #8562a7;
+  box-shadow: 
+    inset 0 0 15px rgba(133, 98, 167, 0.3),
+    0 3px 5px rgba(0, 0, 0, 0.5);
+}
+
+.item-option.relic:hover {
+  box-shadow: 
+    inset 0 0 15px rgba(133, 98, 167, 0.5),
+    0 6px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Game over screen */
+#game-over {
+  background-color: rgba(32, 28, 22, 0.95);
+  border: 4px solid var(--ds-button);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+}
+
+#game-over button {
+  background-color: var(--ds-accent);
+  color: var(--ds-paper);
+  border: 2px solid #000;
+  box-shadow: 
+    inset 0 0 5px rgba(255, 255, 255, 0.1),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+  font-family: 'Century Gothic', 'Futura', sans-serif;
+  text-shadow: 1px 1px 1px var(--ds-ink);
+  transition: all 0.2s;
+}
+
+#game-over button:hover {
+  background-color: var(--ds-accent-light);
+  transform: translateY(-2px);
+  box-shadow: 
+    inset 0 0 8px rgba(255, 255, 255, 0.2),
+    0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Animations */
+@keyframes dsNodePulse {
+  0% { box-shadow: 0 0 10px var(--ds-accent), 0 0 15px var(--ds-accent-light); }
+  100% { box-shadow: 0 0 15px var(--ds-accent-light), 0 0 25px var(--ds-accent); }
+}
+
+@keyframes dsHpChange {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Event styling */
+.event-image-container {
+  border: 4px solid var(--ds-button);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  background-color: rgba(32, 28, 22, 0.7);
+}
+
+.event-choice {
+  background-color: var(--ds-button);
+  color: var(--ds-paper);
+  border: 2px solid #000;
+  box-shadow: 
+    inset 0 0 5px rgba(255, 255, 255, 0.1),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.event-choice:hover {
+  background-color: var(--ds-button-hover);
+  transform: translateY(-2px);
+  box-shadow: 
+    inset 0 0 8px rgba(255, 255, 255, 0.2),
+    0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Shop styling */
+.shop-image-container {
+  border: 4px solid var(--ds-button);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  background-color: rgba(32, 28, 22, 0.7);
+}
+
+/* Rest site styling */
+.rest-site-image {
+  border: 4px solid var(--ds-button);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  background-color: rgba(32, 28, 22, 0.7);
+}
+
+/* Debuff styling */
+#debuff-container {
+  background-color: rgba(45, 27, 27, 0.7);
+  border: 2px solid var(--ds-accent);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+}
+
+.debuff-name {
+  color: var(--ds-accent-light);
+  font-weight: bold;
+}
+
+.debuff-notification {
+  background-color: rgba(45, 27, 27, 0.95);
+  border: 2px solid var(--ds-accent);
+  color: var(--ds-paper);
+  box-shadow: 0 0 15px var(--ds-accent-dark);
+}
+
+/* Treasure chest styling */
+.event-image-container[data-event="treasure"] {
+  border-color: #8562a7;
+  box-shadow: 0 4px 8px rgba(133, 98, 167, 0.5);
+}
+
+/* Battle type indicators */
+.battle-marker[data-battle-type="Elite"] {
+  color: var(--ds-accent-light);
+  text-shadow: 0 0 5px var(--ds-accent);
+}
+
+.battle-marker[data-battle-type="Boss"] {
+  color: #d04343;
+  text-shadow: 0 0 8px #ff5e5e;
+}
+
+/* Inventory styling */
+#inventory-container {
+  background-color: rgba(32, 28, 22, 0.85);
+  border: 3px solid #463931;
+  border-radius: 5px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+
+#inventory-container p {
+  margin: 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #463931;
+  font-family: 'Amatic SC', 'Century Gothic', cursive;
+  font-size: 1.4em;
+  color: #e8dcc2;
+  text-shadow: 1px 1px 2px #000;
+}
+
+#inventory {
+  display: inline-block;
+  padding-top: 5px;
+  font-family: 'Century Gothic', 'Futura', sans-serif;
+  font-size: 0.8em;
+}
+
+/* Inventory items */
+.inventory-item {
+  background-color: rgba(50, 43, 34, 0.85);
+  border: 2px solid var(--ds-button);
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-right: 5px;
+  margin-bottom: 5px;
+  display: inline-block;
+  font-size: 0.85em;
+  box-shadow: 
+    inset 0 0 5px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.inventory-item:hover {
+  background-color: var(--ds-button-hover);
+  transform: translateY(-2px);
+  box-shadow: 
+    inset 0 0 5px rgba(0, 0, 0, 0.3),
+    0 3px 5px rgba(0, 0, 0, 0.5);
+}
+
+.inventory-item[data-applies-to="Rock"] {
+  border-color: var(--ds-rock);
+}
+
+.inventory-item[data-applies-to="Paper"] {
+  border-color: var(--ds-paper);
+}
+
+.inventory-item[data-applies-to="Scissors"] {
+  border-color: var(--ds-scissors);
+}
+
+/* Usable items */
+.usable-item {
+  background-color: var(--ds-button);
+  color: var(--ds-paper);
+  border: 2px solid #000;
+  box-shadow: 
+    inset 0 0 5px rgba(255, 255, 255, 0.1),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.usable-item:hover {
+  background-color: var(--ds-button-hover);
+  transform: translateY(-2px);
+  box-shadow: 
+    inset 0 0 8px rgba(255, 255, 255, 0.2),
+    0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Class to add to body to activate this theme */
+.dont-starve-theme {
+  /* This class is empty as the theme automatically applies */
+  /* It can be used as a selector hook to easily switch themes */
+} 
