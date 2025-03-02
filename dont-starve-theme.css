@@ -2,7 +2,7 @@
 /* Add this CSS file alongside the original styles.css to transform the game's appearance */
 
 :root {
-  --ds-background: #1a1611;
+  --ds-background:#28201C;
   --ds-paper: #e8dcc2;
   --ds-paper-dark: #c9bea4;
   --ds-ink: #000000;
@@ -23,6 +23,40 @@ body {
   background-color: var(--ds-background);
   color: var(--ds-paper);
   font-family: 'Century Gothic', 'Futura', sans-serif;
+  color: #E8D8C4;
+  text-align: center;
+  background-image: 
+    radial-gradient(#3D2D20 2px, transparent 2px),
+    radial-gradient(#3D2D20 2px, transparent 2px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+  overflow-x: hidden;
+}
+
+.decorative-line {
+  height: 2px;
+  background-color: #5C4836;
+  width: 90%;
+  margin: 30px auto;
+  position: relative;
+}
+
+.decorative-line::before, .decorative-line::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #8C5A2D;
+  transform: rotate(45deg);
+  top: -4px;
+}
+
+.decorative-line::before {
+  left: 0;
+}
+
+.decorative-line::after {
+  right: 0;
 }
 
 #game-container {
@@ -41,8 +75,6 @@ h1, h2, h3 {
 h1 {
   font-size: 2.5em;
   margin-bottom: 0.5em;
-  border-bottom: 3px solid var(--ds-accent);
-  padding-bottom: 10px;
 }
 
 /* HP Bars */
