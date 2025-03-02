@@ -1484,7 +1484,7 @@ function updateMapDisplay() {
   mapContainer.appendChild(stepsContainer);
 
   // Determine which nodes to display
-  const MAX_VISIBLE_STEPS = 5; // Maximum nodes to show at once
+  const MAX_VISIBLE_STEPS = 3; // Maximum nodes to show at once
 
   // Get all accessible nodes (visited, current, and next available)
   let nodesToDisplay = [];

@@ -908,19 +908,18 @@ const EVENTS = [
         },
       },
       {
-        text: "Bottle some water (Gain Healing Potion)",
+        text: "Bottle some water (Gain Health Potion)",
         effect: (gameState) => {
           gameState.player.inventory.push({
-            name: "Healing Potion",
-            description: "Restore 20 HP when you lose a match.",
-            type: "defensive",
-            consumed: false,
+            name: "Health Potion",
+            description: "Instantly heals 50 HP",
             effect: (gameState) => {
-              const healAmount = Math.min(20, gameState.player.maxHp - gameState.player.hp);
-              gameState.player.hp += healAmount;
-              return true; // Successfully used
+              const healAmount = 50;
+              gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + healAmount);
+              return healAmount;
             },
-            triggerMessage: () => "Healing Potion activates, restoring 20 HP!",
+            triggerMessage: (amount) => `Health Potion restored ${amount} HP!`,
+            oneTimeUse: true,
           });
 
           return "You carefully bottle some of the glowing water for later use.";

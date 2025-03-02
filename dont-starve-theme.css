@@ -1,4 +1,15 @@
 /* Don't Starve Inspired Theme for RPS Roguelike */
+/* Created by: https://github.com/longmaba/rps-hero */
+/* 
+   To add a preview image for social media sharing, add the following meta tags to the HTML head:
+   
+   <meta property="og:title" content="RPS Roguelike Adventure">
+   <meta property="og:description" content="A roguelike game based on Rock Paper Scissors with Don't Starve-inspired visuals">
+   <meta property="og:image" content="path/to/preview-image.jpg">
+   <meta property="og:url" content="https://github.com/longmaba/rps-hero">
+   <meta name="twitter:card" content="summary_large_image">
+*/
+
 /* Add this CSS file alongside the original styles.css to transform the game's appearance */
 
 :root {
@@ -191,7 +202,7 @@ h1 {
 }
 
 #resolution-log p {
-  border-bottom: 1px solid #3a3329;
+  /* border-bottom: 1px solid #3a3329; */
 }
 
 .player-win {
@@ -522,4 +533,26 @@ h1 {
 .dont-starve-theme {
   /* This class is empty as the theme automatically applies */
   /* It can be used as a selector hook to easily switch themes */
+} 
+
+/* Footer styling */
+.game-footer {
+  margin-top: 25px;
+  margin-bottom: 15px;
+  font-family: 'Century Gothic', 'Futura', sans-serif;
+  color: var(--ds-paper);
+  text-align: center;
+  opacity: 0.85;
+  font-size: 0.9em;
+}
+
+.game-footer a {
+  color: var(--ds-accent-light);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.game-footer a:hover {
+  color: var(--ds-paper);
+  text-shadow: 0 0 5px var(--ds-accent);
 } 
