@@ -7,6 +7,10 @@ body {
     padding: 0;
 }
 
+html {
+    touch-action: manipulation;
+}
+
 #game-container {
     max-width: 800px;
     margin: 20px auto;
