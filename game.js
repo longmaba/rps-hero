@@ -1544,8 +1544,8 @@ function updateMapDisplay() {
     // Set node content based on type
     const nodeType = Object.values(NODE_TYPES).find((type) => type.id === node.type);
 
-    // Show checkmark for finished nodes, or the node icon for current/available nodes
-    if (node.visited && node.id !== currentNode.id) {
+    // Show checkmark for current nodes and finished nodes, node icon for available nodes
+    if (node.visited || node.id === currentNode.id) {
       const checkmark = document.createElement("span");
       checkmark.className = "antd-step-checkmark";
       checkmark.textContent = "✓";
