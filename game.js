@@ -247,6 +247,7 @@ function resolveRound() {
 
   // Clear planned actions for both player and enemy
   gameState.player.plannedActions = [];
+  gameState.enemy.actions = [];
 
   // Apply any round-based debuff effects
   if (gameState.activeDebuff && gameState.activeDebuff.roundEffect) {
