@@ -1820,4 +1820,19 @@ h1 {
 @keyframes potionPulse {
     0% { box-shadow: 0 0 3px rgba(46, 204, 113, 0.4); }
     100% { box-shadow: 0 0 8px rgba(46, 204, 113, 0.8); }
+}
+
+/* Add styling for roast messages */
+.enemy-roast {
+    color: #ff4444;
+    font-style: italic;
+    margin: 5px 0;
+    animation: burn 1s ease-in-out;
+    text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+}
+
+@keyframes burn {
+    0% { opacity: 0; transform: translateX(20px); }
+    50% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; }
 } 

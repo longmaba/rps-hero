@@ -390,6 +390,32 @@ const ENEMY_TYPES = [
       return 1 + (1 - healthPercentage) * 2;
     },
   },
+  {
+    type: "Roaster",
+    description: "A savage opponent that deals emotional damage with brutal insults",
+    getActions: () =>
+      Array(5)
+        .fill()
+        .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]), // These are just for show
+    maxHp: 200,
+    baseDamage: 10,
+    roastInterval: null, // Will store our interval ID
+    onBattleStart: function (gameState) {
+      // Start roasting every 5 seconds
+      this.roastInterval = setInterval(() => {
+        const roast = generateRoast(gameState);
+        const log = document.getElementById("resolution-log");
+        const roastElem = document.createElement("p");
+        roastElem.className = "enemy-roast";
+        roastElem.innerHTML = `🔥 Roaster: "${roast}"`;
+        log.appendChild(roastElem);
+        log.scrollTop = log.scrollHeight;
+      }, 7000);
+    },
+    onBattleEnd: function () {
+      clearInterval(this.roastInterval);
+    },
+  },
 ];
 
 // Basic items configuration (obtainable after battles)
@@ -419,10 +445,10 @@ const ITEMS = [
     name: "Iron Shield",
     type: "conditionalModifier",
     appliesTo: "All",
-    effect: (dmg) => Math.floor(dmg * 0.8),
-    description: "Reduces all incoming damage by 20% when losing",
+    effect: (dmg) => Math.floor(dmg * 0.9),
+    description: "Reduces all incoming damage by 10% when losing",
     condition: "lose",
-    triggerMessage: (dmg) => `Shield absorbed ${Math.ceil(dmg * 0.3)} damage!`,
+    triggerMessage: (dmg) => `Shield absorbed ${Math.ceil(dmg * 0.1)} damage!`,
   },
   {
     name: "Healing Herb",
@@ -682,6 +708,23 @@ const DEBUFFS = [
     },
     roundEffect: () => {
       // No per-round effect
+    },
+  },
+  {
+    id: "emotional_damage",
+    name: "Emotional Damage",
+    description: "You're questioning your life choices after those roasts",
+    icon: "💔",
+    effect: {
+      type: "damage_reduction",
+      value: 0.3, // 30% damage reduction
+    },
+    applyEffect: (gameState) => {
+      const log = document.getElementById("resolution-log");
+      const debuffMsg = document.createElement("p");
+      debuffMsg.className = "debuff-effect";
+      debuffMsg.textContent = "💔 The roasts have left you emotionally compromised! Damage reduced!";
+      log.appendChild(debuffMsg);
     },
   },
 ];
@@ -945,8 +988,8 @@ const GAME_CONFIG = {
   // Currency configuration
   currency: {
     startingAmount: 0, // Starting with some coins for shopping
-    minRewardPerBattle: 20,
-    maxRewardPerBattle: 30,
+    minRewardPerBattle: 30,
+    maxRewardPerBattle: 40,
     eliteBattleMultiplier: 1.5, // Elite battles give 50% more coins
   },
   // Enemy scaling configuration
@@ -957,16 +1000,16 @@ const GAME_CONFIG = {
   },
   // Map configuration
   map: {
-    totalNodes: 15, // Total nodes in a run
+    totalNodes: 25, // Total nodes in a run
     pathsPerNode: 2, // Number of paths from each node
-    minElites: 2, // Minimum number of elite battles per run
-    maxElites: 4, // Maximum number of elite battles per run
+    minElites: 4, // Minimum number of elite battles per run
+    maxElites: 10, // Maximum number of elite battles per run
     shopFrequency: 0.15, // Chance for a shop node
     restFrequency: 0.15, // Chance for a rest node
     eventFrequency: 0.1, // Chance for an event node
     eliteFrequency: 0.15, // Chance for an elite battle node
     treasureFrequency: 0.2, // Chance for a treasure node
-    bossNodeIndex: 15, // The node index of the final boss
+    bossNodeIndex: 25, // The node index of the final boss
   },
   // Rest site configuration
   rest: {

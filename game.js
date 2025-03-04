@@ -7,6 +7,12 @@ const emojiMap = {
 
 // Add this function near the top with other helper functions
 function determineRoundWinner(playerAction, enemyAction) {
+  // Track player move frequency for roasting material
+  if (!gameState.playerMoveCounts) {
+    gameState.playerMoveCounts = { Rock: 0, Paper: 0, Scissors: 0 };
+  }
+  gameState.playerMoveCounts[playerAction]++;
+
   if (playerAction === enemyAction) {
     return "tie";
   } else if (
@@ -120,6 +126,9 @@ function initBattle(isEliteBattle = false) {
   // Reset round results tracking
   gameState.roundResults = [];
 
+  // Reset used roasts
+  gameState.usedRoasts = [];
+
   // Select enemy type based on node type
   let enemyType;
 
@@ -144,9 +153,10 @@ function initBattle(isEliteBattle = false) {
     if (progressPercentage < 0.2) {
       // Early game - mostly basic enemies
       availableEnemies = regularEnemies.filter((enemy) => ["Basic", "Mimic"].includes(enemy.type));
+      // availableEnemies = regularEnemies.filter((enemy) => ["Roaster"].includes(enemy.type));
     } else if (progressPercentage < 0.4) {
       // Mid game - introduce Predictor and Shielded
-      availableEnemies = regularEnemies.filter((enemy) => ["Basic", "Mimic", "Predictor", "Shielded"].includes(enemy.type));
+      availableEnemies = regularEnemies.filter((enemy) => ["Basic", "Mimic", "Predictor", "Shielded", "Roaster"].includes(enemy.type));
     } else {
       // Late game - all enemy types available with higher chance for advanced types
       availableEnemies = regularEnemies;
@@ -168,7 +178,7 @@ function initBattle(isEliteBattle = false) {
     maxHp: scaledHp,
     type: enemyType, // Store the enemy type object
     actions: enemyType.getActions(gameState), // Set actions for the first round
-    baseDamage: GAME_CONFIG.baseDamage, // Enemy gets their own base damage from config
+    baseDamage: enemyType.baseDamage || GAME_CONFIG.baseDamage, // Enemy gets their own base damage from config
   };
 
   // Clear all planned actions
@@ -178,9 +188,14 @@ function initBattle(isEliteBattle = false) {
   updateEnemyDisplay();
   updateUI();
 
+  if (enemyType.onBattleStart) {
+    enemyType.onBattleStart(gameState);
+  }
   // Randomly apply a debuff with a certain chance
   if (Math.random() < GAME_CONFIG.debuffChance && !gameState.activeDebuff) {
-    const availableDebuffs = DEBUFFS.filter((debuff) => !gameState.player.inventory.some((item) => item.name === "Lucky Charm"));
+    const availableDebuffs = DEBUFFS.filter(
+      (debuff) => debuff.id !== "emotional_damage" && !gameState.player.inventory.some((item) => item.name === "Lucky Charm")
+    );
     if (availableDebuffs.length > 0) {
       const randomDebuff = availableDebuffs[Math.floor(Math.random() * availableDebuffs.length)];
       gameState.activeDebuff = { ...randomDebuff };
@@ -792,6 +807,9 @@ function resolveRound() {
   function handleDefeat() {
     // Clear the enemy's actions
     clearEnemyMovesWithAnimation();
+    if (gameState.enemy.type.onBattleEnd) {
+      gameState.enemy.type.onBattleEnd();
+    }
 
     // Log defeat message
     const defeatMsg = document.createElement("p");
@@ -810,6 +828,9 @@ function resolveRound() {
   function handleVictory() {
     // Clear the enemy's actions
     clearEnemyMovesWithAnimation();
+    if (gameState.enemy.type.onBattleEnd) {
+      gameState.enemy.type.onBattleEnd();
+    }
 
     // Log victory message
     const victoryMsg = document.createElement("p");
@@ -1393,6 +1414,34 @@ function determineNodeType(position) {
   // First node is always a battle
   if (position === 1) {
     return NODE_TYPES.BATTLE.id;
+  }
+
+  // Check if the previous node was non-combat
+  // If we have 2 consecutive non-combat nodes already, force a combat node
+  if (position > 2) {
+    // Get the previous two nodes
+    const prevNode = gameState.map.find((node) => node.x === ((position - 1) * 100) / gameState.map.length);
+    const prevPrevNode = gameState.map.find((node) => node.x === ((position - 2) * 100) / gameState.map.length);
+
+    // If both previous nodes were non-combat, force a combat node
+    if (prevNode && prevPrevNode) {
+      const isCombatNode = (type) => type === NODE_TYPES.BATTLE.id || type === NODE_TYPES.ELITE.id;
+      const prevIsCombat = isCombatNode(prevNode.type);
+      const prevPrevIsCombat = isCombatNode(prevPrevNode.type);
+
+      // If we have 2 consecutive non-combat nodes, force a combat node
+      if (!prevIsCombat && !prevPrevIsCombat) {
+        return Math.random() < 0.7 ? NODE_TYPES.BATTLE.id : NODE_TYPES.ELITE.id;
+      }
+
+      // If we have 1 consecutive non-combat node, reduce chance of another non-combat
+      if (!prevIsCombat && prevPrevIsCombat) {
+        // 70% chance for combat node
+        if (Math.random() < 0.7) {
+          return Math.random() < 0.7 ? NODE_TYPES.BATTLE.id : NODE_TYPES.ELITE.id;
+        }
+      }
+    }
   }
 
   // Get frequencies from GAME_CONFIG
@@ -2230,20 +2279,26 @@ function applyPostBattleEffects() {
   // Handle scaling items
   let damageIncrease = 0;
 
-  gameState.player.inventory.forEach((item) => {
-    if (item.type === "scaling" && item.appliesTo === "playerBaseDamage") {
-      const originalDamage = gameState.player.baseDamage;
-      gameState.player.baseDamage = item.effect(gameState.player.baseDamage);
-      damageIncrease += gameState.player.baseDamage - originalDamage;
-    }
-  });
+  // Only apply scaling items if the current node is a battle or elite battle
+  const currentNode = gameState.map[gameState.currentNodeIndex];
+  const isBattleNode = currentNode && (currentNode.type === NODE_TYPES.BATTLE.id || currentNode.type === NODE_TYPES.ELITE.id);
 
-  // Show trigger message if there was an increase
-  if (damageIncrease > 0) {
-    const logElem = document.createElement("p");
-    logElem.textContent = `🏋️‍♂️ Training complete! Your base damage increased by ${damageIncrease}!`;
-    logElem.className = "player-effect";
-    document.getElementById("resolution-log").appendChild(logElem);
+  if (isBattleNode) {
+    gameState.player.inventory.forEach((item) => {
+      if (item.type === "scaling" && item.appliesTo === "playerBaseDamage") {
+        const originalDamage = gameState.player.baseDamage;
+        gameState.player.baseDamage = item.effect(gameState.player.baseDamage);
+        damageIncrease += gameState.player.baseDamage - originalDamage;
+      }
+    });
+
+    // Show trigger message if there was an increase
+    if (damageIncrease > 0) {
+      const logElem = document.createElement("p");
+      logElem.textContent = `🏋️‍♂️ Training complete! Your base damage increased by ${damageIncrease}!`;
+      logElem.className = "player-effect";
+      document.getElementById("resolution-log").appendChild(logElem);
+    }
   }
 
   // Rest of existing post-battle logic...
@@ -2675,22 +2730,6 @@ function showTreasure() {
   const existingOtherImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
   existingOtherImages.forEach((img) => img.remove());
 
-  // // Remove any existing images to prevent duplicates or overlap
-  // const existingEventImage = itemSelection.querySelector(".event-image-container");
-  // if (existingEventImage) {
-  //   existingEventImage.remove();
-  // }
-
-  // const existingRestImage = itemSelection.querySelector(".rest-site-image");
-  // if (existingRestImage) {
-  //   existingRestImage.remove();
-  // }
-
-  // const existingShopImage = itemSelection.querySelector(".shop-image-container");
-  // if (existingShopImage) {
-  //   existingShopImage.remove();
-  // }
-
   // Create and insert the treasure image
   const imageContainer = document.createElement("div");
   imageContainer.className = "event-image-container";
@@ -2708,11 +2747,20 @@ function showTreasure() {
   itemOptions.innerHTML = "";
   itemOptions.className = "event-options";
 
-  // Create combined item pool from ITEMS and RELICS
-  const combinedPool = [...ITEMS, ...RELICS];
+  // Determine if we will offer a relic (25% chance) or only normal items
+  const offerRelic = Math.random() < 0.5;
 
-  // Get 3 random items from the combined pool
-  const treasureItems = getRandomUniqueItems(3, combinedPool);
+  // Get items to display
+  let treasureItems;
+
+  if (offerRelic) {
+    // 25% chance: Include both normal items and relics
+    const combinedPool = [...ITEMS, ...RELICS];
+    treasureItems = getRandomUniqueItems(3, combinedPool);
+  } else {
+    // 75% chance: Only normal items
+    treasureItems = getRandomUniqueItems(3, ITEMS);
+  }
 
   // Display items as options
   treasureItems.forEach((item) => {
@@ -2741,30 +2789,79 @@ function showTreasure() {
       itemElement.appendChild(appliesTo);
     }
 
-    // Add click handler
-    itemElement.onclick = () => {
-      // Add selected item to inventory
-      gameState.player.inventory.push({ ...item });
+    // Add on-click event to select this item
+    itemElement.addEventListener("click", () => {
+      selectItem(item);
+    });
 
-      // Show confirmation message
-      const resultElement = document.createElement("p");
-      resultElement.className = "event-result";
-      resultElement.textContent = `You've acquired ${item.name}!`;
-
-      // Clear options and show result
-      itemOptions.innerHTML = "";
-      itemOptions.appendChild(resultElement);
-
-      // Continue to next node after a delay
-      setTimeout(() => {
-        resultElement.classList.add("fade-out");
-        setTimeout(() => {
-          updateAvailableNodes();
-          showNodeSelection();
-        }, 1000);
-      }, 2000);
-    };
-
+    // Add the item element to the options container
     itemOptions.appendChild(itemElement);
   });
+}
+
+// Add new function for generating roasts
+function generateRoast(gameState) {
+  // Get player's most used move
+  const moves = gameState.playerMoveCounts || { Rock: 0, Paper: 0, Scissors: 0 };
+  const mostUsedMove = Object.entries(moves).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+
+  // Get random player item for roasting
+  const items = gameState.player.inventory.map((i) => i.name);
+  const randomItem = items.length > 0 ? items[Math.floor(Math.random() * items.length)] : "basic skills";
+
+  const roasts = [
+    `Using ${mostUsedMove} again? Your creativity died with Vine.`,
+    `${randomItem || "Nothing"} in your inventory? My grandma's grocery list is scarier.`,
+
+    // Gaming skill insults
+    "You play like someone who unironically says 'GG EZ' after being carried.",
+    "Your strategy has more holes than NFT project roadmaps.",
+    "Is your attack plan AI-generated? Because it lacks human intelligence.",
+    "You fight like someone who pre-orders AAA games then complains.",
+
+    // Meta insults
+    "Your deck composition screams 'I get my builds from TikTok tutorials'.",
+    "Using that item? Name one person who asked. I'll wait.",
+    "Your moveset is the RPS equivalent of pineapple on pizza.",
+    "You're getting styled on harder than Cyberpunk's launch version.",
+
+    // Psychological warfare
+    "The only thing you're winning is your family's disappointment race.",
+    "You're about as threatening as a 'We need to talk' text.",
+    "Your gameplay makes me wish climate change would hurry up.",
+    "I'd call you trash but at least trash gets taken out.",
+
+    // Existential dread
+    "When you lose this, what's your excuse? 'Wasn't trying' or 'Game's broken'?",
+    "Imagine paying full price for this game just to get humiliated.",
+    "Your ancestors are watching this and applying for retroactive abortions.",
+    "You're the reason some species eat their young.",
+
+    "First time? (Don't answer, we know)",
+    "Still here? Your persistence is almost... sad.",
+    "This is getting awkward... for you",
+    "At this point you're just a glutton for punishment",
+    "I'm starting to feel bad... psych! L + ratio",
+  ];
+
+  // Insert customizations into roast template
+  let usedRoasts = gameState.usedRoasts || [];
+  let availableRoasts = roasts.filter((roast) => !usedRoasts.includes(roast));
+
+  if (availableRoasts.length === 0) {
+    // If all roasts have been used, reset the used roasts list
+    gameState.usedRoasts = [];
+    availableRoasts = roasts;
+  }
+
+  let roast = availableRoasts[Math.floor(Math.random() * availableRoasts.length)];
+  gameState.usedRoasts.push(roast);
+
+  // 30% chance to apply emotional damage debuff
+  if (Math.random() < 0.3) {
+    if (!gameState.playerDebuffs) gameState.playerDebuffs = [];
+    gameState.playerDebuffs.push(DEBUFFS.find((d) => d.id === "emotional_damage"));
+  }
+
+  return roast;
 }
