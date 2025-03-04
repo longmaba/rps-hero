@@ -271,7 +271,7 @@ const ENEMY_TYPES = [
       Array(5)
         .fill()
         .map(() => ["Rock", "Paper", "Scissors"][Math.floor(Math.random() * 3)]),
-    maxHp: 150,
+    maxHp: 300,
     isElite: true,
     eliteAbility: "Resolves each move twice for double damage",
   },

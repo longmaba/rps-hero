@@ -1259,6 +1259,11 @@ function showItemSelection(context) {
     itemPool = ITEMS;
     heading = "Choose Your Reward";
     description = "Select one item as your battle reward:";
+  } else if (context === "treasure") {
+    // After finding a treasure chest, player selects an item
+    itemPool = ITEMS;
+    heading = "Choose Your Treasure";
+    description = "Select one item from the treasure chest:";
   }
 
   // Update heading and description
@@ -1312,7 +1317,7 @@ function selectItem(item) {
 
   // Apply one-time effects for utility items
   if (item.type === "utility" && item.isOneTimeEffect) {
-    const result = item.effect();
+    const result = item.effect(gameState);
     if (result && item.triggerMessage) {
       // Log the effect if it has a message
       const log = document.getElementById("resolution-log");
@@ -1338,6 +1343,15 @@ function selectItem(item) {
   } else if (gameState.itemSelectionContext === "victory") {
     // Show node selection after item selection
     showNodeSelection();
+  } else if (gameState.itemSelectionContext === "treasure") {
+    // Make sure the node is marked as visited and update the map
+    const currentNode = gameState.map[gameState.currentNodeIndex];
+    if (currentNode) {
+      currentNode.visited = true;
+      updateAvailableNodes(); // Update available nodes based on new state
+      updateMapDisplay();
+    }
+    showNodeSelection();
   }
 
   // Update inventory display
@@ -1357,16 +1371,17 @@ function generateMap() {
     type: "start",
     x: 0,
     y: 50,
-    connections: [1], // Connect to first encounter node
+    connections: [1, 2], // Connect to two initial nodes for branching paths
     visited: true,
   });
 
-  // Create sequential nodes
+  // Create branching nodes
   let currentId = 1;
   const nodeCount = 10; // Total nodes in the run (excluding start)
+  const pathWidth = 20; // Vertical spread between paths
 
-  // Create nodes in a horizontal line
-  for (let i = 1; i <= nodeCount; i++) {
+  // Create first two nodes after start (first branch)
+  for (let i = 1; i <= 2; i++) {
     // Determine node type based on position
     let nodeType = determineNodeType(i);
 
@@ -1375,32 +1390,73 @@ function generateMap() {
       nodeType = NODE_TYPES.BATTLE.id;
     }
 
-    // Last node is always a boss
-    const isBoss = i === nodeCount;
-    if (isBoss) {
-      nodeType = NODE_TYPES.BATTLE.id;
-    }
-
-    // Create node
+    // Create node with y position offset depending on branch
     map.push({
       id: currentId,
-      type: isBoss ? NODE_TYPES.BATTLE.id : nodeType,
-      isBoss: isBoss,
-      x: (i * 100) / (nodeCount + 1), // Spread horizontally
-      y: 50, // All at same vertical level
-      connections: i < nodeCount ? [currentId + 1] : [], // Connect to next node if not the last
+      type: nodeType,
+      x: 100 / (nodeCount + 1), // First column
+      y: i === 1 ? 50 - pathWidth : 50 + pathWidth, // Branch vertical position
+      connections: [], // We'll add connections later
       visited: false,
     });
 
-    // Add incoming connection
-    if (i > 0) {
-      if (!map[currentId].incomingConnections) {
-        map[currentId].incomingConnections = [];
-      }
-      map[currentId].incomingConnections.push(currentId - 1);
+    currentId++;
+  }
+
+  // Create remaining nodes with branches
+  for (let column = 2; column <= nodeCount; column++) {
+    // Last column is always the boss
+    const isBoss = column === nodeCount;
+
+    // For the last column, create just one boss node
+    if (isBoss) {
+      const bossNodeId = currentId;
+      map.push({
+        id: bossNodeId,
+        type: NODE_TYPES.BATTLE.id,
+        isBoss: true,
+        x: (column * 100) / (nodeCount + 1),
+        y: 50, // Center position
+        connections: [],
+        visited: false,
+      });
+
+      // Connect all nodes from the previous column to the boss
+      const previousColumnNodes = map.filter((node) => Math.abs(node.x - ((column - 1) * 100) / (nodeCount + 1)) < 0.1);
+
+      previousColumnNodes.forEach((node) => {
+        node.connections.push(bossNodeId);
+      });
+
+      currentId++;
+      continue;
     }
 
-    currentId++;
+    // For middle columns, create 2 nodes with connections to both previous and next column
+    for (let branch = 1; branch <= 2; branch++) {
+      let nodeType = determineNodeType(column);
+
+      // Create node
+      const nodeId = currentId;
+      map.push({
+        id: nodeId,
+        type: nodeType,
+        x: (column * 100) / (nodeCount + 1),
+        y: branch === 1 ? 50 - pathWidth : 50 + pathWidth,
+        connections: [],
+        visited: false,
+      });
+
+      // Connect to previous column
+      const previousColumnNodes = map.filter((node) => Math.abs(node.x - ((column - 1) * 100) / (nodeCount + 1)) < 0.1);
+
+      // Each node in previous column connects to this node
+      previousColumnNodes.forEach((prevNode) => {
+        prevNode.connections.push(nodeId);
+      });
+
+      currentId++;
+    }
   }
 
   return map;
@@ -1533,38 +1589,24 @@ function updateMapDisplay() {
   stepsContainer.className = "antd-steps";
   mapContainer.appendChild(stepsContainer);
 
-  // Determine which nodes to display
-  const MAX_VISIBLE_STEPS = 3; // Maximum nodes to show at once
-
-  // Get all accessible nodes (visited, current, and next available)
+  // Only show a limited history plus current node in the antd steps
   let nodesToDisplay = [];
 
-  // Add visited nodes first
-  gameState.map.forEach((node) => {
-    if (node.visited && node.id !== currentNode.id) {
-      nodesToDisplay.push(node);
-    }
-  });
+  // Add up to 2 visited nodes for history
+  const visitedNodes = gameState.map
+    .filter((node) => node.visited && node.id !== currentNode.id)
+    .sort((a, b) => b.x - a.x)
+    .slice(0, 2);
+
+  nodesToDisplay = [...visitedNodes];
 
   // Add current node
   nodesToDisplay.push(currentNode);
 
-  // Add next nodes (available choices)
-  if (currentNode.connections && currentNode.connections.length > 0) {
-    currentNode.connections.forEach((nodeId) => {
-      const node = gameState.map.find((n) => n.id === nodeId);
-      if (node) {
-        nodesToDisplay.push(node);
-      }
-    });
-  }
+  // Sort nodes by x position
+  nodesToDisplay.sort((a, b) => a.x - b.x);
 
-  // If too many nodes, keep only the most recent ones
-  if (nodesToDisplay.length > MAX_VISIBLE_STEPS) {
-    nodesToDisplay = nodesToDisplay.slice(nodesToDisplay.length - MAX_VISIBLE_STEPS);
-  }
-
-  // Create steps for each node
+  // Create steps for completed and current nodes
   nodesToDisplay.forEach((node, index) => {
     // Create step item
     const stepItem = document.createElement("div");
@@ -1577,8 +1619,6 @@ function updateMapDisplay() {
       stepItem.setAttribute("data-status", "current");
     } else if (node.visited) {
       stepItem.setAttribute("data-status", "finished");
-    } else if (gameState.availableNodeChoices.find((choice) => choice.id === node.id)) {
-      stepItem.setAttribute("data-status", "available");
     } else {
       stepItem.setAttribute("data-status", "pending");
     }
@@ -1595,7 +1635,7 @@ function updateMapDisplay() {
     const nodeType = Object.values(NODE_TYPES).find((type) => type.id === node.type);
 
     // Show checkmark for current nodes and finished nodes, node icon for available nodes
-    if (node.visited || node.id === currentNode.id) {
+    if (node.visited) {
       const checkmark = document.createElement("span");
       checkmark.className = "antd-step-checkmark";
       checkmark.textContent = "✓";
@@ -1611,7 +1651,7 @@ function updateMapDisplay() {
     }
 
     // Add node title below the icon (visible for current and next nodes)
-    if (node.id === currentNode.id || gameState.availableNodeChoices.find((choice) => choice.id === node.id)) {
+    if (node.id === currentNode.id) {
       const nodeTitle = document.createElement("div");
       nodeTitle.className = "antd-step-title";
       nodeTitle.textContent = nodeType ? nodeType.name : "Unknown";
@@ -1622,7 +1662,7 @@ function updateMapDisplay() {
     if (nodeType) {
       const tooltip = document.createElement("div");
       tooltip.className = "node-tooltip";
-      tooltip.innerHTML = `<h4>${nodeType.name}</h4><p>${nodeType.description}</p>`;
+      tooltip.innerHTML = `<h4>${nodeType.name}</h4>`;
       iconContainer.appendChild(tooltip);
     }
 
@@ -1634,23 +1674,68 @@ function updateMapDisplay() {
       line.className = "antd-step-line";
 
       // If this node is visited or current, mark the line as active
-      if (node.visited || node.id === currentNode.id) {
+      if (node.visited) {
         line.setAttribute("data-status", "active");
       }
 
       stepItem.appendChild(line);
     }
 
-    // Add click handler to available next nodes
-    if (gameState.availableNodeChoices.find((choice) => choice.id === node.id)) {
-      stepItem.style.cursor = "pointer";
-      stepItem.onclick = () => {
-        selectNode(node);
-      };
-    }
-
     stepsContainer.appendChild(stepItem);
   });
+
+  // If there are available nodes to choose from, create a node options section
+  if (gameState.availableNodeChoices.length > 0) {
+    // Add a heading that says "Choose your next destination:"
+    const choiceHeading = document.createElement("div");
+    choiceHeading.className = "node-options-info";
+    choiceHeading.textContent = "Choose your next destination:";
+    mapContainer.appendChild(choiceHeading);
+
+    // Create a container for node options
+    const nodeOptionsContainer = document.createElement("div");
+    nodeOptionsContainer.className = "node-options";
+    mapContainer.appendChild(nodeOptionsContainer);
+
+    // Create a node option for each available choice
+    gameState.availableNodeChoices.forEach((node) => {
+      const nodeType = Object.values(NODE_TYPES).find((type) => type.id === node.type);
+
+      const nodeOption = document.createElement("div");
+      nodeOption.className = "node-option";
+      nodeOption.setAttribute("data-type", node.type);
+      if (node.isBoss) {
+        nodeOption.setAttribute("data-is-boss", "true");
+      }
+
+      // Create icon
+      const iconElement = document.createElement("div");
+      iconElement.className = "node-option-icon";
+      iconElement.textContent = nodeType ? nodeType.icon : "❓";
+      nodeOption.appendChild(iconElement);
+
+      // Create details
+      const detailsElement = document.createElement("div");
+      detailsElement.className = "node-option-details";
+
+      const nameElement = document.createElement("h3");
+      nameElement.textContent = nodeType ? nodeType.name : "Unknown";
+      detailsElement.appendChild(nameElement);
+
+      const descElement = document.createElement("p");
+      descElement.textContent = nodeType ? nodeType.description : "A mysterious location.";
+      detailsElement.appendChild(descElement);
+
+      nodeOption.appendChild(detailsElement);
+
+      // Add click handler
+      nodeOption.onclick = () => {
+        selectNode(node);
+      };
+
+      nodeOptionsContainer.appendChild(nodeOption);
+    });
+  }
 }
 
 // Show node selection screen
@@ -1689,6 +1774,9 @@ function selectNode(node) {
 
   // Update current node index
   gameState.currentNodeIndex = gameState.map.findIndex((mapNode) => mapNode.id === node.id);
+
+  // Update available nodes based on new position
+  updateAvailableNodes();
 
   // Process the node based on its type
   processCurrentNode();
@@ -2712,21 +2800,16 @@ function calculateEnemyDamage(playerAction, enemyAction) {
 
 // Show treasure chest with item options
 function showTreasure() {
-  // Hide other screens
-  document.getElementById("battle-screen").classList.add("hidden");
-  document.getElementById("game-over").classList.add("hidden");
+  // Call the main item selection function with treasure context
+  showItemSelection("treasure");
 
-  // Show the item selection screen
+  // Add treasure-specific image
   const itemSelection = document.getElementById("item-selection");
-  itemSelection.classList.remove("hidden");
 
-  // Set context attribute for treasure-specific styling
+  // Set data context attribute for styling
   itemSelection.setAttribute("data-context", "treasure");
 
-  // Update the heading and description
-  document.getElementById("item-selection-heading").textContent = "Treasure Chest";
-  document.getElementById("item-selection-message").textContent = "You found a treasure chest! Select one item to add to your inventory:";
-
+  // Create and insert the treasure image
   const existingOtherImages = document.querySelectorAll(".rest-site-image, .event-image-container, .shop-image-container");
   existingOtherImages.forEach((img) => img.remove());
 
@@ -2741,62 +2824,6 @@ function showTreasure() {
 
   // Add console log for debugging
   console.log("Treasure chest opened");
-
-  // Clear the options container
-  const itemOptions = document.getElementById("item-options");
-  itemOptions.innerHTML = "";
-  itemOptions.className = "event-options";
-
-  // Determine if we will offer a relic (25% chance) or only normal items
-  const offerRelic = Math.random() < 0.5;
-
-  // Get items to display
-  let treasureItems;
-
-  if (offerRelic) {
-    // 25% chance: Include both normal items and relics
-    const combinedPool = [...ITEMS, ...RELICS];
-    treasureItems = getRandomUniqueItems(3, combinedPool);
-  } else {
-    // 75% chance: Only normal items
-    treasureItems = getRandomUniqueItems(3, ITEMS);
-  }
-
-  // Display items as options
-  treasureItems.forEach((item) => {
-    const itemElement = document.createElement("div");
-    itemElement.className = "item-option";
-
-    // Add relic class if it's a relic
-    if (RELICS.includes(item)) {
-      itemElement.classList.add("relic");
-    }
-
-    const itemName = document.createElement("h3");
-    itemName.textContent = item.name;
-    itemElement.appendChild(itemName);
-
-    const itemDesc = document.createElement("p");
-    itemDesc.textContent = item.description;
-    itemElement.appendChild(itemDesc);
-
-    // Add applies-to info if present
-    if (item.appliesTo) {
-      const appliesTo = document.createElement("div");
-      appliesTo.className = "item-applies-to";
-      appliesTo.setAttribute("data-applies-to", item.appliesTo);
-      appliesTo.textContent = `Applies to: ${item.appliesTo}`;
-      itemElement.appendChild(appliesTo);
-    }
-
-    // Add on-click event to select this item
-    itemElement.addEventListener("click", () => {
-      selectItem(item);
-    });
-
-    // Add the item element to the options container
-    itemOptions.appendChild(itemElement);
-  });
 }
 
 // Add new function for generating roasts
