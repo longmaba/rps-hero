@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" class="dont-starve-theme">
+
+<head>
+    <meta charset="UTF-8">
+    <meta property="og:title" content="RPS Roguelike Adventure - Multiplayer">
+    <meta property="og:description"
+        content="Multiplayer mode for the roguelike game based on Rock Paper Scissors with Don't Starve-inspired visuals">
+    <meta property="og:image"
+        content="https://github.com/longmaba/rps-hero/blob/30d25bf1960ee7d5d61292f28fd686030c21c6d2/assets/preview.png?raw=true">
+    <meta property="og:url" content="https://github.com/longmaba/rps-hero">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>RPS Roguelike - Multiplayer</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dont-starve-theme.css">
+    <!-- Added Google Font for Don't Starve feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="game-container">
+        <h1>🎮 RPS Roguelike Multiplayer 🎮</h1>
+
+        <!-- Connection Panel -->
+        <div id="connection-panel">
+            <div id="create-room">
+                <h2>Create Battle</h2>
+                <button id="generate-room-btn" class="game-button">Generate Room Code</button>
+                <div id="room-code-display" class="hidden">
+                    <h3>Your Room Code: <span id="room-code"></span></h3>
+                    <p>Share this code with your opponent</p>
+                    <p id="connection-waiting" class="hidden">Waiting for opponent to join...</p>
+                </div>
+            </div>
+
+            <div id="join-room">
+                <h2>Join Battle</h2>
+                <input id="room-code-input" placeholder="Enter Room Code" maxlength="4">
+                <button id="join-battle-btn" class="game-button">Join Battle</button>
+            </div>
+
+            <div id="connection-status">
+                <p>Status: <span id="status-message">Disconnected</span></p>
+            </div>
+
+            <div id="back-to-main">
+                <a href="index.html" class="game-button">Back to Main Game</a>
+            </div>
+        </div>
+
+        <!-- Battle UI (adapts from single player) -->
+        <div id="multiplayer-battle" class="hidden">
+            <div id="status">
+                <div>
+                    <p>💪 You: <span id="player-name">Player</span></p>
+                    <div class="hp-bar">
+                        <div class="hp-bar-fill" id="player-hp-bar" style="width: 100%;"></div>
+                        <span class="hp-text" id="player-hp">100</span>
+                    </div>
+                </div>
+                <div>
+                    <p>👤 Opponent: <span id="opponent-name">Opponent</span></p>
+                    <div class="hp-bar">
+                        <div class="hp-bar-fill" id="opponent-hp-bar" style="width: 100%;"></div>
+                        <span class="hp-text" id="opponent-hp">100</span>
+                    </div>
+                </div>
+                <p>🔄 Round: <span id="round-number">1</span></p>
+                <div id="inventory-container">
+                    <p>🎒 Your Items: <span id="inventory">None</span></p>
+                </div>
+                <div id="debuff-container" class="hidden">
+                    <!-- Debuff info will be inserted here by JavaScript -->
+                </div>
+            </div>
+
+            <div id="battle-screen">
+                <h2>Choose Your Moves</h2>
+                <div id="opponent-planned-actions" class="action-row">
+                    <div class="action-label">Opponent Moves:</div>
+                    <div id="opponent-actions"></div>
+                </div>
+                <div id="planned-actions-container" class="action-row">
+                    <div class="action-label">Your Moves:</div>
+                    <div id="planned-actions"></div>
+                </div>
+                <div id="actions">
+                    <button id="rock-btn" class="move-btn" aria-label="Select Rock">✊</button>
+                    <button id="paper-btn" class="move-btn" aria-label="Select Paper">✋</button>
+                    <button id="scissors-btn" class="move-btn" aria-label="Select Scissors">✌️</button>
+                    <button id="clear-btn" class="util-btn">🗑️ Clear All</button>
+                    <button id="lock-btn" class="util-btn">🔒 Lock In</button>
+                </div>
+                <div id="countdown-display" class="hidden">
+                    <h3>Moves locked! Battle starts in: <span id="countdown">5</span></h3>
+                    <button id="unlock-btn">🔓 Unlock</button>
+                </div>
+                <div class="log-header">
+                    <h3>Battle Log</h3>
+                    <button id="clear-log-btn" class="clear-log-btn">🗑️ Clear Log</button>
+                </div>
+                <div id="battle-log"></div>
+            </div>
+
+            <div id="item-selection" class="hidden">
+                <h2>Choose an Item</h2>
+                <p id="item-selection-message">Select one item (10 seconds remaining): <span id="item-timer">10</span>
+                </p>
+                <div id="item-options"></div>
+            </div>
+
+            <div id="game-over" class="hidden">
+                <h2>Battle Complete</h2>
+                <p id="game-over-message"></p>
+                <button id="rematch-btn" class="game-button">Rematch</button>
+                <button id="return-lobby-btn" class="game-button">Return to Lobby</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="game-footer">
+        <p>Created by <a href="https://github.com/longmaba/rps-hero" target="_blank">longmaba</a> | Contact: <a
+                href="mailto:longmaba@gmail.com">longmaba@gmail.com</a> | Version: 1.6</p>
+    </footer>
+
+    <!-- Core libraries -->
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <!-- Game scripts -->
+    <script src="config.js"></script>
+    <script src="js/shared-battle.js"></script>
+    <script src="js/peer-connection.js"></script>
+    <script src="js/multiplayer.js"></script>
+</body>
+
+</html>

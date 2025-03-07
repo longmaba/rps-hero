@@ -27,10 +27,6 @@ h1 {
     margin-bottom: 20px;
 }
 
-.hidden {
-    display: none;
-}
-
 /* Run map styling */
 #run-map {
     width: 100%;
@@ -593,7 +589,7 @@ h1 {
 }
 
 /* Resolution log styling */
-#resolution-log {
+#resolution-log, #battle-log {
     background-color: #2c3e50;
     border-radius: 10px;
     padding: 15px;
@@ -603,7 +599,7 @@ h1 {
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
-#resolution-log p {
+#resolution-log p, #battle-log p {
     padding: 8px 10px;
     margin: 6px 0;
     border-radius: 5px;
@@ -1246,7 +1242,7 @@ h1 {
     padding-right: 10px;
 }
 
-#resolution-log {
+#resolution-log, #battle-log {
     margin: 20px 10px;
 }
 
@@ -1680,7 +1676,8 @@ h1 {
 
 /* Unified styling for action boxes */
 #enemy-actions div,
-#planned-actions div {
+#planned-actions div,
+#opponent-actions div {
     width: 70px;
     height: 70px;
     border-radius: 10px;
@@ -1942,4 +1939,294 @@ h1 {
         width: 90%;
         height: 300px;
     }
+}
+
+/* Multiplayer Styles */
+#game-modes {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.game-mode-btn {
+  display: inline-block;
+  background-color: #573c27;
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 18px;
+  font-weight: bold;
+  border: 2px solid #2a1e13;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 0 #2a1e13;
+  margin: 0 10px;
+}
+
+.game-mode-btn:hover {
+  background-color: #704e35;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #2a1e13;
+}
+
+.game-mode-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #2a1e13;
+}
+
+#connection-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+/* Ensure .hidden works on #connection-panel */
+#connection-panel.hidden {
+  display: none !important;
+}
+
+#create-room, #join-room {
+  width: 100%;
+  max-width: 400px;
+  margin: 10px 0;
+  padding: 15px;
+  background-color: rgba(87, 60, 39, 0.7);
+  border-radius: 8px;
+  text-align: center;
+}
+
+#create-room h2, #join-room h2 {
+  margin-top: 0;
+  font-size: 24px;
+  color: #e8d9b5;
+}
+
+#room-code-display {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+#room-code {
+  font-size: 32px;
+  font-weight: bold;
+  letter-spacing: 5px;
+  color: #ffd866;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+#room-code-input {
+  width: 150px;
+  padding: 10px;
+  font-size: 24px;
+  text-align: center;
+  letter-spacing: 3px;
+  margin: 10px 0;
+  background-color: #e8d9b5;
+  border: 2px solid #573c27;
+  border-radius: 5px;
+  text-transform: uppercase;
+}
+
+.game-button {
+  display: inline-block;
+  background-color: #573c27;
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 0 #2a1e13;
+  margin: 10px 5px;
+  text-decoration: none;
+}
+
+.game-button:hover {
+  background-color: #704e35;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #2a1e13;
+}
+
+.game-button:active, .game-button:disabled {
+  background-color: #44301e;
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #2a1e13;
+}
+
+#connection-status {
+  margin-top: 20px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  text-align: center;
+}
+
+#status-message {
+  font-weight: bold;
+  color: #ffd866;
+}
+
+#multiplayer-battle {
+  width: 100%;
+}
+
+#countdown-display {
+  text-align: center;
+  padding: 15px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  margin: 10px 0;
+  animation: pulse 1s infinite alternate;
+}
+
+#countdown-display h3 {
+  margin: 0;
+  font-size: 24px;
+  color: #ffd866;
+}
+
+#countdown {
+  font-size: 36px;
+  font-weight: bold;
+  color: #ff6188;
+}
+
+.move-btn, .util-btn {
+  padding: 10px 15px;
+  margin: 5px;
+  font-size: 18px;
+  background-color: #573c27;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 0 #2a1e13;
+}
+
+.move-btn:hover, .util-btn:hover {
+  background-color: #704e35;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #2a1e13;
+}
+
+.move-btn:active, .util-btn:active,
+.move-btn:disabled, .util-btn:disabled {
+  background-color: #44301e;
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #2a1e13;
+  opacity: 0.7;
+}
+
+.move-btn {
+  font-size: 24px;
+  width: 60px;
+  height: 60px;
+}
+
+/* Style for unlock button */
+.unlock-btn {
+  background-color: #e74c3c !important;
+  border-color: #c0392b !important;
+}
+
+.unlock-btn:hover {
+  background-color: #c0392b !important;
+}
+
+#back-to-main {
+  margin-top: 20px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  #connection-panel {
+    padding: 10px;
+  }
+  
+  #create-room, #join-room {
+    padding: 10px;
+  }
+  
+  .game-button, .move-btn, .util-btn {
+    padding: 8px 12px;
+    font-size: 16px;
+  }
+  
+  #room-code {
+    font-size: 24px;
+  }
+  
+  #room-code-input {
+    width: 120px;
+    font-size: 20px;
+  }
+}
+
+.firebase-notification {
+  width: 100%;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  background-color: rgba(255, 218, 102, 0.3);
+  border-left: 4px solid #ffda66;
+  border-radius: 5px;
+  color: #ffda66;
+  text-align: center;
+}
+
+.firebase-notification p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Opponent's planned actions */
+#opponent-actions {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+
+.empty-slot {
+  background-color: rgba(44, 62, 80, 0.5) !important;
+  border: 2px dashed #7f8c8d !important;
+  color: transparent !important;
+}
+
+#planned-actions .empty-slot:hover {
+  transform: none !important;
+  cursor: default !important;
+  box-shadow: none !important;
+}
+
+.current-comparison {
+  box-shadow: 0 0 15px #f1c40f !important;
+  transform: scale(1.1) !important;
+  z-index: 10;
+  position: relative;
+  animation: pulseBright 1s infinite alternate !important;
+}
+
+@keyframes pulseBright {
+  0% {
+    box-shadow: 0 0 10px rgba(241, 196, 15, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(241, 196, 15, 1);
+  }
+}
+
+
+.hidden {
+    display: none;
 }
