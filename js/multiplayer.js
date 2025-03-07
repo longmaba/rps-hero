@@ -243,8 +243,7 @@ function setupEventListeners() {
   elements.clearLogBtn.addEventListener("click", clearBattleLog);
 
   // Game over controls
-  // Comment out rematch functionality
-  // elements.rematchBtn.addEventListener("click", requestRematch);
+  elements.rematchBtn.addEventListener("click", requestRematch);
   elements.returnLobbyBtn.addEventListener("click", returnToLobby);
 
   // Peer communication events
@@ -1446,9 +1445,8 @@ function handleBattleEnd() {
 }
 
 /**
- * Requests a rematch
+ * Sends a rematch request to the opponent
  */
-/*
 function requestRematch() {
   // Disable button to prevent multiple requests
   elements.rematchBtn.disabled = true;
@@ -1460,26 +1458,24 @@ function requestRematch() {
     peerId: myPeerId,
   });
 }
-*/
 
 /**
  * Handles a rematch request from opponent
  */
-/*
 function handleRematchRequest() {
   // Show rematch notification
   elements.gameOverMessage.textContent = "Your opponent wants a rematch! Accept?";
-  
+
   // Change rematch button text
   elements.rematchBtn.textContent = "Accept Rematch";
-  
+
   // Enable button if it was disabled
   elements.rematchBtn.disabled = false;
-  
+
   // Change button function to accept rematch
-  elements.rematchBtn.onclick = function() {
+  elements.rematchBtn.onclick = function () {
     handleRematchAccept();
-    
+
     // Send acceptance to peer
     sendToPeer({
       type: "rematch-accept",
@@ -1487,17 +1483,14 @@ function handleRematchRequest() {
     });
   };
 }
-*/
 
 /**
  * Handles acceptance of a rematch
  */
-/*
 function handleRematchAccept() {
   // Reset for new battle
   resetForNewBattle();
 }
-*/
 
 /**
  * Resets for a new battle
