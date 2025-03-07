@@ -746,6 +746,7 @@ function lockMoves() {
     type: "move-lock",
     locked: true,
     peerId: myPeerId,
+    timestamp: Date.now(), // Add timestamp for deduplication
   });
 
   // Disable move buttons
@@ -788,6 +789,7 @@ function unlockMoves() {
   sendToPeer({
     type: "move-unlock",
     peerId: myPeerId,
+    timestamp: Date.now(), // Add timestamp for deduplication
   });
 
   // Enable move buttons
@@ -894,6 +896,11 @@ function resolveRound() {
     unlockActionBtn.classList.add("hidden");
   }
 
+  // Debug log for modifiers
+  console.log("Current modifiers state:");
+  console.log("Player 1 modifiers:", battleState.player1Modifiers);
+  console.log("Player 2 modifiers:", battleState.player2Modifiers);
+
   // Get moves from both players
   const player1Moves = [...battleState.player1Moves];
   const player2Moves = [...battleState.player2Moves];
@@ -912,6 +919,11 @@ function resolveRound() {
       player1Modifiers: battleState.player1Modifiers,
       player2Modifiers: battleState.player2Modifiers,
     };
+
+    // Debug log for currentState
+    console.log("Current battle state:", currentState);
+    console.log("Player 1 modifiers count:", currentState.player1Modifiers.length);
+    console.log("Player 2 modifiers count:", currentState.player2Modifiers.length);
 
     // Highlight and compare moves one by one with a delay
     compareMovesSequentially(player1Moves, player2Moves, currentState);
@@ -938,6 +950,10 @@ function compareMovesSequentially(player1Moves, player2Moves, currentState) {
   // We'll compare one set of moves at a time
   let currentIndex = 0;
 
+  // Debug log to show what modifiers are available
+  console.log("Before compare - Player 1 modifiers:", currentState.player1Modifiers);
+  console.log("Before compare - Player 2 modifiers:", currentState.player2Modifiers);
+
   // Function to compare the next set of moves
   function compareNextMoves() {
     if (currentIndex >= maxMoves) {
@@ -963,15 +979,23 @@ function compareMovesSequentially(player1Moves, player2Moves, currentState) {
       return;
     }
 
-    // Compare these two moves
-    const result = SharedBattle.compareOneMoveSet(move1, move2, {
+    // Make sure the modifiers are properly passed
+    const battleStateForComparison = {
       player1HP: totalResults.player1RemainingHP,
       player2HP: totalResults.player2RemainingHP,
       player1BaseDamage: currentState.player1BaseDamage,
       player2BaseDamage: currentState.player2BaseDamage,
-      player1Modifiers: currentState.player1Modifiers,
-      player2Modifiers: currentState.player2Modifiers,
-    });
+      player1Modifiers: Array.isArray(currentState.player1Modifiers) ? [...currentState.player1Modifiers] : [],
+      player2Modifiers: Array.isArray(currentState.player2Modifiers) ? [...currentState.player2Modifiers] : [],
+    };
+
+    // Debug log battle state we're passing
+    console.log(`Comparing move ${currentIndex + 1}: ${move1} vs ${move2}`);
+    console.log(`Player 1 modifiers count: ${battleStateForComparison.player1Modifiers.length}`);
+    console.log(`Player 2 modifiers count: ${battleStateForComparison.player2Modifiers.length}`);
+
+    // Compare these two moves
+    const result = SharedBattle.compareOneMoveSet(move1, move2, battleStateForComparison);
 
     // Update the total results
     totalResults.player1RemainingHP = result.player1RemainingHP;
@@ -1228,10 +1252,10 @@ function selectItem(item) {
   // Store selection (with original item that has the effect function)
   if (isHost) {
     battleState.itemSelection.player1Selected = item;
-    battleState.player1Inventory.push(item);
+    battleState.player1Inventory.push({ ...item });
   } else {
     battleState.itemSelection.player2Selected = item;
-    battleState.player2Inventory.push(item);
+    battleState.player2Inventory.push({ ...item });
   }
 
   // Send selection to peer (without the function property)
@@ -1240,6 +1264,7 @@ function selectItem(item) {
       type: "item-selected",
       item: itemCopy, // Send the copy without function
       peerId: myPeerId,
+      timestamp: Date.now(), // Add timestamp for deduplication
     });
   } catch (error) {
     console.error("Error sending data:", error);
@@ -1254,9 +1279,11 @@ function selectItem(item) {
   // Add to modifiers if applicable
   if (item.type === "actionModifier") {
     if (isHost) {
-      battleState.player1Modifiers.push(item);
+      console.log(`Adding modifier ${item.name} to player1Modifiers with effect function: ${typeof item.effect}`);
+      battleState.player1Modifiers.push({ ...item });
     } else {
-      battleState.player2Modifiers.push(item);
+      console.log(`Adding modifier ${item.name} to player2Modifiers with effect function: ${typeof item.effect}`);
+      battleState.player2Modifiers.push({ ...item });
     }
   }
 
@@ -1270,6 +1297,9 @@ function selectItem(item) {
  * @param {string} peerId - The peer ID of the selector
  */
 function handleItemSelection(item, peerId) {
+  // Debug log to track when this function is called
+  console.log(`handleItemSelection called with item=${item.name}, peerId=${peerId}`);
+
   // Check if itemSelection exists
   if (!battleState || !battleState.itemSelection) {
     console.error("Item selection state is null or undefined in handleItemSelection");
@@ -1300,24 +1330,43 @@ function handleItemSelection(item, peerId) {
   // Debug log to check if effect function exists
   console.log(`Found matching item: ${fullItem.name}, has effect function: ${!!fullItem.effect}`);
 
-  // Store in battle state
-  if (isHost) {
-    battleState.itemSelection.player2Selected = fullItem;
-    battleState.player2Inventory.push(fullItem);
+  // Create a deep copy to ensure the effect function is not lost during serialization
+  const itemWithEffect = { ...fullItem };
 
-    // Add to modifiers if applicable
-    if (fullItem.type === "actionModifier") {
-      console.log(`Adding ${fullItem.name} to player2Modifiers (effect function: ${!!fullItem.effect})`);
-      battleState.player2Modifiers.push(fullItem);
+  // Check if this item was already added (prevent duplicates)
+  if (isHost) {
+    // Check if the player already has this item in their modifiers
+    const existingModifier = battleState.player2Modifiers.find((mod) => mod.name === itemWithEffect.name && mod.rarity === itemWithEffect.rarity);
+
+    // Only update if the item isn't already in modifiers
+    if (!existingModifier) {
+      battleState.itemSelection.player2Selected = itemWithEffect;
+      battleState.player2Inventory.push(itemWithEffect);
+
+      // Add to modifiers if applicable
+      if (itemWithEffect.type === "actionModifier") {
+        console.log(`Adding ${itemWithEffect.name} to player2Modifiers (effect function: ${typeof itemWithEffect.effect})`);
+        battleState.player2Modifiers.push(itemWithEffect);
+      }
+    } else {
+      console.log(`Item ${itemWithEffect.name} already exists in player2Modifiers, not adding duplicate`);
     }
   } else {
-    battleState.itemSelection.player1Selected = fullItem;
-    battleState.player1Inventory.push(fullItem);
+    // Check if the player already has this item in their modifiers
+    const existingModifier = battleState.player1Modifiers.find((mod) => mod.name === itemWithEffect.name && mod.rarity === itemWithEffect.rarity);
 
-    // Add to modifiers if applicable
-    if (fullItem.type === "actionModifier") {
-      console.log(`Adding ${fullItem.name} to player1Modifiers (effect function: ${!!fullItem.effect})`);
-      battleState.player1Modifiers.push(fullItem);
+    // Only update if the item isn't already in modifiers
+    if (!existingModifier) {
+      battleState.itemSelection.player1Selected = itemWithEffect;
+      battleState.player1Inventory.push(itemWithEffect);
+
+      // Add to modifiers if applicable
+      if (itemWithEffect.type === "actionModifier") {
+        console.log(`Adding ${itemWithEffect.name} to player1Modifiers (effect function: ${typeof itemWithEffect.effect})`);
+        battleState.player1Modifiers.push(itemWithEffect);
+      }
+    } else {
+      console.log(`Item ${itemWithEffect.name} already exists in player1Modifiers, not adding duplicate`);
     }
   }
 
@@ -1554,6 +1603,12 @@ function updateOpponentActions() {
  * @param {string} peerId - The peer ID of the locker
  */
 function handleMoveLock(locked, peerId) {
+  // Debug log to track when this function is called
+  console.log(`handleMoveLock called with locked=${locked}, peerId=${peerId}`);
+
+  // Track the previous lock state
+  const wasAlreadyLocked = isHost ? battleState.player2Locked : battleState.player1Locked;
+
   // Update battle state with opponent's lock
   if (isHost) {
     battleState.player2Locked = locked;
@@ -1561,8 +1616,10 @@ function handleMoveLock(locked, peerId) {
     battleState.player1Locked = locked;
   }
 
-  // Add log message
-  addBattleLog("Opponent locked in their moves.");
+  // Only add log message if this is a new lock (not already locked)
+  if (!wasAlreadyLocked && locked) {
+    addBattleLog("Opponent locked in their moves.");
+  }
 
   // Update UI to reflect new state
   updateActionButtons();

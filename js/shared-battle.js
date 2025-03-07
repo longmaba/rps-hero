@@ -56,6 +56,45 @@ class SharedBattle {
       logs: [],
     };
 
+    // Debug log to check modifiers
+    console.log("***** Compare One Move Set *****");
+    console.log("Move1:", move1, "Move2:", move2);
+    console.log("Player1Modifiers:", battleState.player1Modifiers ? battleState.player1Modifiers.length : "undefined");
+    console.log("Player2Modifiers:", battleState.player2Modifiers ? battleState.player2Modifiers.length : "undefined");
+
+    // Deduplicate modifiers to prevent multiple applications of the same modifier
+    if (Array.isArray(battleState.player1Modifiers)) {
+      const uniqueP1Mods = [];
+      const p1ModNames = new Set();
+
+      for (const mod of battleState.player1Modifiers) {
+        const modKey = `${mod.name}-${mod.rarity}`;
+        if (!p1ModNames.has(modKey)) {
+          p1ModNames.add(modKey);
+          uniqueP1Mods.push(mod);
+        }
+      }
+
+      battleState.player1Modifiers = uniqueP1Mods;
+      console.log("Deduplicated Player1Modifiers count:", uniqueP1Mods.length);
+    }
+
+    if (Array.isArray(battleState.player2Modifiers)) {
+      const uniqueP2Mods = [];
+      const p2ModNames = new Set();
+
+      for (const mod of battleState.player2Modifiers) {
+        const modKey = `${mod.name}-${mod.rarity}`;
+        if (!p2ModNames.has(modKey)) {
+          p2ModNames.add(modKey);
+          uniqueP2Mods.push(mod);
+        }
+      }
+
+      battleState.player2Modifiers = uniqueP2Mods;
+      console.log("Deduplicated Player2Modifiers count:", uniqueP2Mods.length);
+    }
+
     // Get the outcome of the comparison
     const outcome = this.determineWinner(move1, move2);
 

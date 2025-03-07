@@ -39,6 +39,11 @@ let roomCode = null;
 const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Omitting confusing characters like 0/O, 1/I
 const ROOM_CODE_LENGTH = 4;
 
+// Track recently processed messages to prevent duplicates
+const recentlyProcessedMessages = new Set();
+const messageTimestamps = new Map();
+const MESSAGE_EXPIRY_TIME = 5000; // 5 seconds
+
 // Connection status constants
 const CONNECTION_STATUS = {
   DISCONNECTED: "Disconnected",
@@ -305,7 +310,30 @@ function handleConnectionOpen() {
  * @param {object} data - The data received
  */
 function handleIncomingData(data) {
-  console.log("Received data:", data);
+  console.log("Received data in peer-connection.js:", data);
+
+  // Add message tracking to prevent duplicate handling
+  if (data && data.type) {
+    // Generate a message ID based on the content
+    const messageId = data.peerId && data.timestamp ? `${data.type}-${data.peerId}-${data.timestamp}` : null;
+
+    // If we have a message ID, check if we've seen it before
+    if (messageId && recentlyProcessedMessages.has(messageId)) {
+      console.log(`Ignoring duplicate message: ${messageId}`);
+      return; // Skip processing duplicate message
+    }
+
+    // If we have a message ID, track it
+    if (messageId) {
+      recentlyProcessedMessages.add(messageId);
+      messageTimestamps.set(messageId, Date.now());
+
+      // Clean up old messages periodically
+      if (recentlyProcessedMessages.size > 100) {
+        cleanupOldMessages();
+      }
+    }
+  }
 
   // Dispatch event for other modules to handle
   document.dispatchEvent(
@@ -389,4 +417,27 @@ function closePeerConnection() {
   myPeerId = null;
 
   updateConnectionStatus(CONNECTION_STATUS.DISCONNECTED);
+}
+
+/**
+ * Cleans up old messages from the recentlyProcessedMessages set
+ */
+function cleanupOldMessages() {
+  const now = Date.now();
+  const expiredMessages = [];
+
+  // Find expired messages
+  for (const [messageId, timestamp] of messageTimestamps.entries()) {
+    if (now - timestamp > MESSAGE_EXPIRY_TIME) {
+      expiredMessages.push(messageId);
+    }
+  }
+
+  // Remove expired messages
+  for (const messageId of expiredMessages) {
+    recentlyProcessedMessages.delete(messageId);
+    messageTimestamps.delete(messageId);
+  }
+
+  console.log(`Cleaned up ${expiredMessages.length} old messages. Remaining: ${recentlyProcessedMessages.size}`);
 }
