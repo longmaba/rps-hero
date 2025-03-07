@@ -166,6 +166,7 @@ function cacheElements() {
     roomCodeInput: document.getElementById("room-code-input"),
     createRoomBtn: document.getElementById("generate-room-btn"),
     joinRoomBtn: document.getElementById("join-battle-btn"),
+    copyRoomCodeBtn: document.getElementById("copy-room-code"),
     connectionStatus: document.getElementById("connection-status"),
     statusMessage: document.getElementById("status-message"),
     waitingMessage: document.getElementById("connection-waiting"),
@@ -228,6 +229,7 @@ function setupEventListeners() {
   // Room creation and joining
   elements.createRoomBtn.addEventListener("click", createRoom);
   elements.joinRoomBtn.addEventListener("click", joinRoom);
+  elements.copyRoomCodeBtn.addEventListener("click", copyRoomCode);
 
   // Battle controls
   elements.rockBtn.addEventListener("click", () => addAction("Rock"));
@@ -1521,6 +1523,68 @@ function handleStateUpdate(changes) {
 
   // Update UI
   updateBattleUI();
+}
+
+/**
+ * Copies the room code to the clipboard
+ */
+function copyRoomCode() {
+  const roomCode = elements.roomCode.textContent;
+
+  if (!roomCode) {
+    return; // No room code to copy
+  }
+
+  // Use the Clipboard API if available
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard
+      .writeText(roomCode)
+      .then(() => {
+        // Visual feedback
+        elements.copyRoomCodeBtn.textContent = "✓";
+        elements.copyRoomCodeBtn.classList.add("success");
+
+        // Reset after a moment
+        setTimeout(() => {
+          elements.copyRoomCodeBtn.textContent = "📋";
+          elements.copyRoomCodeBtn.classList.remove("success");
+        }, 1500);
+      })
+      .catch((err) => {
+        console.error("Could not copy text: ", err);
+        alert("Failed to copy room code. Please copy it manually.");
+      });
+  } else {
+    // Fallback for browsers without clipboard API
+    const textarea = document.createElement("textarea");
+    textarea.value = roomCode;
+    textarea.style.position = "fixed"; // Avoid scrolling to bottom
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+      const successful = document.execCommand("copy");
+      if (successful) {
+        // Visual feedback
+        elements.copyRoomCodeBtn.textContent = "✓";
+        elements.copyRoomCodeBtn.classList.add("success");
+
+        // Reset after a moment
+        setTimeout(() => {
+          elements.copyRoomCodeBtn.textContent = "📋";
+          elements.copyRoomCodeBtn.classList.remove("success");
+        }, 1500);
+      } else {
+        alert("Failed to copy room code. Please copy it manually.");
+      }
+    } catch (err) {
+      console.error("Could not copy text: ", err);
+      alert("Failed to copy room code. Please copy it manually.");
+    }
+
+    document.body.removeChild(textarea);
+  }
 }
 
 // Initialize the multiplayer when the page loads

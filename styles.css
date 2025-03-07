@@ -2230,3 +2230,32 @@ h1 {
 .hidden {
     display: none;
 }
+
+/* Style for the copy button */
+.copy-btn {
+  background-color: #573c27;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-left: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+}
+
+.copy-btn:hover {
+  background-color: #704e35;
+  transform: translateY(-2px);
+}
+
+.copy-btn:active {
+  background-color: #44301e;
+  transform: translateY(0);
+}
+
+.copy-btn.success {
+  background-color: #27ae60;
+  animation: pulse 0.5s ease-in-out;
+}
