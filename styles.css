@@ -2274,3 +2274,29 @@ h1 {
   background-color: #27ae60;
   animation: pulse 0.5s ease-in-out;
 }
+
+/* Connection notification */
+.connection-notification {
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  color: #856404;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  font-size: 14px;
+  animation: fadeInOut 5s forwards;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.connection-notification p {
+  margin: 0;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}

@@ -573,11 +573,21 @@ function updateActionButtons() {
     elements.lockBtn.innerHTML = "🔓 Unlock";
     elements.lockBtn.classList.add("unlock-btn");
 
-    // Disable unlock button if in countdown phase with <= 3 seconds left
-    if (phase === BATTLE_PHASE.COUNTDOWN && battleState.countdown <= 3) {
+    // Disable unlock button if:
+    // 1. During countdown phase with <= 3 seconds left
+    // 2. During battle resolution phase
+    // 3. When battle has ended
+
+    if (
+      (phase === BATTLE_PHASE.COUNTDOWN && battleState.countdown <= 3) ||
+      phase === BATTLE_PHASE.RESOLUTION ||
+      phase === BATTLE_PHASE.ITEM_SELECTION ||
+      battleState.winner !== null
+    ) {
       elements.lockBtn.disabled = true;
     } else {
-      elements.lockBtn.disabled = false;
+      // Only allow unlocking during move selection phase
+      elements.lockBtn.disabled = phase !== BATTLE_PHASE.MOVE_SELECTION;
     }
   } else {
     // If unlocked, show as "Lock In"
@@ -617,12 +627,31 @@ function addAction(action) {
   // Update UI
   updatePlannedActions();
 
-  // Send update to peer
-  sendToPeer({
+  // Try to send update to peer, handle failure gracefully
+  const sendSuccess = sendToPeer({
     type: "move-selection",
     moves: isHost ? battleState.player1Moves : battleState.player2Moves,
     peerId: myPeerId,
   });
+
+  // If failed to send, show notification
+  if (!sendSuccess) {
+    // Show temporary notification
+    const notification = document.createElement("div");
+    notification.className = "connection-notification";
+    notification.innerHTML =
+      "<p>⚠️ Connection issue: Your move was saved locally but may not have been sent to your opponent. Waiting for connection...</p>";
+
+    // Add to battle area temporarily
+    elements.battleArea.insertAdjacentElement("afterbegin", notification);
+
+    // Remove after 5 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 5000);
+  }
 
   // Enable lock button
   elements.lockBtn.disabled = false;
@@ -869,6 +898,9 @@ function startCountdown() {
       if (unlockActionBtn) {
         unlockActionBtn.disabled = true;
       }
+
+      // Update all action buttons state when we reach 3 seconds or less
+      updateActionButtons();
     }
 
     // When countdown reaches 0, resolve the round
@@ -895,10 +927,20 @@ function resolveRound() {
     unlockActionBtn.classList.add("hidden");
   }
 
-  // Debug log for modifiers
-  console.log("Current modifiers state:");
-  console.log("Player 1 modifiers:", battleState.player1Modifiers);
-  console.log("Player 2 modifiers:", battleState.player2Modifiers);
+  // Disable all action buttons including lock/unlock during resolution
+  elements.rockBtn.disabled = true;
+  elements.paperBtn.disabled = true;
+  elements.scissorsBtn.disabled = true;
+  elements.clearBtn.disabled = true;
+  elements.lockBtn.disabled = true;
+
+  // Update all UI elements to reflect the new state
+  updateActionButtons();
+
+  // // Debug log for modifiers
+  // console.log("Current modifiers state:");
+  // console.log("Player 1 modifiers:", battleState.player1Modifiers);
+  // console.log("Player 2 modifiers:", battleState.player2Modifiers);
 
   // Get moves from both players
   const player1Moves = [...battleState.player1Moves];
@@ -919,10 +961,10 @@ function resolveRound() {
       player2Modifiers: battleState.player2Modifiers,
     };
 
-    // Debug log for currentState
-    console.log("Current battle state:", currentState);
-    console.log("Player 1 modifiers count:", currentState.player1Modifiers.length);
-    console.log("Player 2 modifiers count:", currentState.player2Modifiers.length);
+    // // Debug log for currentState
+    // console.log("Current battle state:", currentState);
+    // console.log("Player 1 modifiers count:", currentState.player1Modifiers.length);
+    // console.log("Player 2 modifiers count:", currentState.player2Modifiers.length);
 
     // Highlight and compare moves one by one with a delay
     compareMovesSequentially(player1Moves, player2Moves, currentState);
@@ -950,8 +992,8 @@ function compareMovesSequentially(player1Moves, player2Moves, currentState) {
   let currentIndex = 0;
 
   // Debug log to show what modifiers are available
-  console.log("Before compare - Player 1 modifiers:", currentState.player1Modifiers);
-  console.log("Before compare - Player 2 modifiers:", currentState.player2Modifiers);
+  // console.log("Before compare - Player 1 modifiers:", currentState.player1Modifiers);
+  // console.log("Before compare - Player 2 modifiers:", currentState.player2Modifiers);
 
   // Function to compare the next set of moves
   function compareNextMoves() {
@@ -988,10 +1030,10 @@ function compareMovesSequentially(player1Moves, player2Moves, currentState) {
       player2Modifiers: Array.isArray(currentState.player2Modifiers) ? [...currentState.player2Modifiers] : [],
     };
 
-    // Debug log battle state we're passing
-    console.log(`Comparing move ${currentIndex + 1}: ${move1} vs ${move2}`);
-    console.log(`Player 1 modifiers count: ${battleStateForComparison.player1Modifiers.length}`);
-    console.log(`Player 2 modifiers count: ${battleStateForComparison.player2Modifiers.length}`);
+    // // Debug log battle state we're passing
+    // console.log(`Comparing move ${currentIndex + 1}: ${move1} vs ${move2}`);
+    // console.log(`Player 1 modifiers count: ${battleStateForComparison.player1Modifiers.length}`);
+    // console.log(`Player 2 modifiers count: ${battleStateForComparison.player2Modifiers.length}`);
 
     // Compare these two moves
     const result = SharedBattle.compareOneMoveSet(move1, move2, battleStateForComparison);

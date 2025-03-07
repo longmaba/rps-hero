@@ -53,6 +53,16 @@ const CONNECTION_STATUS = {
   ERROR: "Error: ",
 };
 
+// Add connection state variable
+let connectionState = "disconnected"; // can be "disconnected", "connecting", "open"
+
+// Add variables for reconnection
+let lastConnectedPeerId = null;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 3;
+let isReconnecting = false;
+let reconnectTimer = null;
+
 /**
  * Generates a random room code
  * @returns {string} A 4-character alphanumeric room code
@@ -84,7 +94,7 @@ function initializeAsHost() {
 
   peer.on("open", (id) => {
     myPeerId = id;
-    console.log("My peer ID is: " + myPeerId);
+    // console.log("My peer ID is: " + myPeerId);
 
     // Try to register room in Firebase if available
     if (useFirebase && firebaseInitialized) {
@@ -247,6 +257,9 @@ function initializeGuestPeer(hostPeerId) {
  * @param {string} peerId - The peer ID to connect to
  */
 function connectToPeer(peerId) {
+  connectionState = "connecting"; // Set state to connecting
+  updateConnectionStatus("Connecting to peer...");
+
   connection = peer.connect(peerId, {
     reliable: true,
   });
@@ -257,7 +270,17 @@ function connectToPeer(peerId) {
 
   connection.on("error", (err) => {
     console.error("Connection error:", err);
+    connectionState = "disconnected"; // Update state on error
     updateConnectionStatus(CONNECTION_STATUS.ERROR + "Connection failed");
+  });
+
+  // Add data and close handlers here to ensure they're set up early
+  connection.on("data", (data) => {
+    handleIncomingData(data);
+  });
+
+  connection.on("close", () => {
+    handleConnectionClosed();
   });
 }
 
@@ -267,6 +290,8 @@ function connectToPeer(peerId) {
  */
 function handlePeerConnection(conn) {
   connection = conn;
+  connectionState = "connecting"; // Set state to connecting
+  updateConnectionStatus("Incoming connection, establishing link...");
 
   connection.on("open", () => {
     handleConnectionOpen();
@@ -282,6 +307,7 @@ function handlePeerConnection(conn) {
 
   connection.on("error", (err) => {
     console.error("Connection error:", err);
+    connectionState = "disconnected"; // Update state on error
     updateConnectionStatus(CONNECTION_STATUS.ERROR + err.type);
   });
 }
@@ -290,19 +316,21 @@ function handlePeerConnection(conn) {
  * Handles when a connection is successfully opened
  */
 function handleConnectionOpen() {
-  updateConnectionStatus(CONNECTION_STATUS.CONNECTED);
+  // console.log("Connection opened!");
+  connectionState = "open"; // Update state to open
 
-  // Set up data handlers
-  connection.on("data", (data) => {
-    handleIncomingData(data);
-  });
+  // Reset reconnection variables on successful connection
+  reconnectAttempts = 0;
+  isReconnecting = false;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
 
-  connection.on("close", () => {
-    handleConnectionClosed();
-  });
-
-  // Notify that connection is ready
+  // Fire the peer-connected event
   document.dispatchEvent(new CustomEvent("peer-connected"));
+
+  updateConnectionStatus("Connected to peer! Initializing battle...");
 }
 
 /**
@@ -310,7 +338,7 @@ function handleConnectionOpen() {
  * @param {object} data - The data received
  */
 function handleIncomingData(data) {
-  console.log("Received data in peer-connection.js:", data);
+  // console.log("Received data in peer-connection.js:", data);
 
   // Add message tracking to prevent duplicate handling
   if (data && data.type) {
@@ -319,7 +347,7 @@ function handleIncomingData(data) {
 
     // If we have a message ID, check if we've seen it before
     if (messageId && recentlyProcessedMessages.has(messageId)) {
-      console.log(`Ignoring duplicate message: ${messageId}`);
+      // console.log(`Ignoring duplicate message: ${messageId}`);
       return; // Skip processing duplicate message
     }
 
@@ -347,13 +375,60 @@ function handleIncomingData(data) {
  * Handles when a connection is closed
  */
 function handleConnectionClosed() {
-  updateConnectionStatus("Disconnected: Opponent left");
+  console.log("Connection closed!");
+  connectionState = "disconnected"; // Update state to disconnected
 
-  // Notify that connection is closed
-  document.dispatchEvent(new CustomEvent("peer-disconnected"));
+  updateConnectionStatus("Disconnected: Attempting to reconnect...");
 
-  // Clean up
+  // Store the last connected peer for reconnection
+  if (connection && connection.peer) {
+    lastConnectedPeerId = connection.peer;
+  }
+
+  // Clean up current connection
   connection = null;
+
+  // Attempt to reconnect if we have a peer ID
+  if (lastConnectedPeerId && reconnectAttempts < maxReconnectAttempts) {
+    attemptReconnection();
+  } else {
+    // Failed to reconnect after max attempts
+    updateConnectionStatus("Disconnected: Opponent left");
+    // Notify that connection is closed
+    document.dispatchEvent(new CustomEvent("peer-disconnected"));
+  }
+}
+
+/**
+ * Attempts to reconnect to the last connected peer
+ */
+function attemptReconnection() {
+  if (isReconnecting || connectionState === "open" || !lastConnectedPeerId) {
+    return;
+  }
+
+  isReconnecting = true;
+  reconnectAttempts++;
+
+  updateConnectionStatus(`Reconnecting... Attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+
+  // Attempt to reconnect
+  connectToPeer(lastConnectedPeerId);
+
+  // Set a timeout to try again if this attempt fails
+  reconnectTimer = setTimeout(() => {
+    if (connectionState !== "open") {
+      isReconnecting = false;
+
+      if (reconnectAttempts < maxReconnectAttempts) {
+        attemptReconnection();
+      } else {
+        // Give up after max attempts
+        updateConnectionStatus("Disconnected: Failed to reconnect");
+        document.dispatchEvent(new CustomEvent("peer-disconnected"));
+      }
+    }
+  }, 5000); // Wait 5 seconds between reconnection attempts
 }
 
 /**
@@ -367,11 +442,24 @@ function sendToPeer(data) {
     return false;
   }
 
+  // Check if connection is open before sending
+  if (connectionState !== "open") {
+    console.error("Connection is not in open state. Current state:", connectionState);
+    // Attempt to notify the user about connection issues
+    updateConnectionStatus("Connection error: Please wait for connection to be established");
+    return false;
+  }
+
   try {
     connection.send(data);
     return true;
   } catch (error) {
     console.error("Error sending data:", error);
+    // Update connection state if there's a send error
+    if (error.message.includes("Connection is not open")) {
+      connectionState = "disconnected";
+      updateConnectionStatus("Connection error: Lost connection to opponent");
+    }
     return false;
   }
 }
