@@ -109,12 +109,23 @@ class SharedBattle {
     // Start with base damage
     let finalDamage = baseDamage;
 
+    console.log(`Calculating damage for ${action1} vs ${action2}. Base damage: ${baseDamage}`);
+    console.log(`Number of modifiers: ${modifiers ? modifiers.length : 0}`);
+
     // Apply modifiers
     if (modifiers && modifiers.length > 0) {
       modifiers.forEach((modifier) => {
         // Check if modifier applies to this action
         if (modifier.appliesTo === action1 || modifier.appliesTo === "All") {
-          finalDamage = modifier.effect(finalDamage);
+          console.log(`Applying modifier ${modifier.name} (applies to ${modifier.appliesTo})`);
+
+          if (typeof modifier.effect === "function") {
+            const oldDamage = finalDamage;
+            finalDamage = modifier.effect(finalDamage);
+            console.log(`  Damage modified from ${oldDamage} to ${finalDamage}`);
+          } else {
+            console.error(`Missing effect function for ${modifier.name}`);
+          }
         }
       });
     }

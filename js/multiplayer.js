@@ -343,6 +343,10 @@ function handleIncomingData(data) {
     case "chat-message":
       // Optional: handle chat messages
       break;
+
+    case "item-used":
+      handleItemUsed(data);
+      break;
   }
 }
 
@@ -449,8 +453,96 @@ function updateInventoryDisplay() {
     return;
   }
 
-  const inventoryText = inventory.map((item) => item.name).join(", ");
-  elements.inventory.textContent = inventoryText;
+  // Clear inventory container first
+  elements.inventory.innerHTML = "";
+
+  // Create a usable item display for each item
+  inventory.forEach((item, index) => {
+    const itemSpan = document.createElement("span");
+    itemSpan.className = "inventory-item";
+    itemSpan.dataset.appliesTo = item.appliesTo;
+    itemSpan.textContent = item.name;
+    itemSpan.title = item.description;
+
+    // If it's a consumable, make it clickable
+    if (item.type === "consumable") {
+      itemSpan.classList.add("consumable");
+      itemSpan.addEventListener("click", () => useInventoryItem(index));
+    }
+
+    // Add a comma separator if not the last item
+    if (index < inventory.length - 1) {
+      itemSpan.textContent += ", ";
+    }
+
+    elements.inventory.appendChild(itemSpan);
+  });
+}
+
+/**
+ * Uses an inventory item
+ * @param {number} index - The index of the item in the inventory
+ */
+function useInventoryItem(index) {
+  // Can only use items during move selection phase
+  if (battleState.phase !== BATTLE_PHASE.MOVE_SELECTION) {
+    addBattleLog("Can't use items now - wait for your turn!");
+    return;
+  }
+
+  // Get the player's inventory
+  const inventory = isHost ? battleState.player1Inventory : battleState.player2Inventory;
+
+  // Check if the index is valid
+  if (index < 0 || index >= inventory.length) {
+    console.error("Invalid inventory index:", index);
+    return;
+  }
+
+  const item = inventory[index];
+
+  // Only consumable items can be used directly
+  if (item.type !== "consumable") {
+    addBattleLog(`${item.name} is used automatically during battle.`);
+    return;
+  }
+
+  // Create a temporary player object that matches what the effect function expects
+  const playerObj = {
+    hp: isHost ? battleState.player1HP : battleState.player2HP,
+    maxHp: isHost ? battleState.player1MaxHP : battleState.player2MaxHP,
+  };
+
+  // Apply the effect
+  const effectResult = item.effect(playerObj);
+
+  // Update the battle state with the new HP
+  if (isHost) {
+    battleState.player1HP = playerObj.hp;
+  } else {
+    battleState.player2HP = playerObj.hp;
+  }
+
+  // Remove the item from inventory
+  if (isHost) {
+    battleState.player1Inventory.splice(index, 1);
+  } else {
+    battleState.player2Inventory.splice(index, 1);
+  }
+
+  // Update UI
+  updateBattleUI();
+
+  // Log the use
+  addBattleLog(`You used ${item.name}!`);
+
+  // Inform the opponent
+  sendToPeer({
+    type: "item-used",
+    itemName: item.name,
+    newHP: playerObj.hp,
+    peerId: myPeerId,
+  });
 }
 
 /**
@@ -1205,6 +1297,9 @@ function handleItemSelection(item, peerId) {
     return;
   }
 
+  // Debug log to check if effect function exists
+  console.log(`Found matching item: ${fullItem.name}, has effect function: ${!!fullItem.effect}`);
+
   // Store in battle state
   if (isHost) {
     battleState.itemSelection.player2Selected = fullItem;
@@ -1212,6 +1307,7 @@ function handleItemSelection(item, peerId) {
 
     // Add to modifiers if applicable
     if (fullItem.type === "actionModifier") {
+      console.log(`Adding ${fullItem.name} to player2Modifiers (effect function: ${!!fullItem.effect})`);
       battleState.player2Modifiers.push(fullItem);
     }
   } else {
@@ -1220,6 +1316,7 @@ function handleItemSelection(item, peerId) {
 
     // Add to modifiers if applicable
     if (fullItem.type === "actionModifier") {
+      console.log(`Adding ${fullItem.name} to player1Modifiers (effect function: ${!!fullItem.effect})`);
       battleState.player1Modifiers.push(fullItem);
     }
   }
@@ -1585,6 +1682,25 @@ function copyRoomCode() {
 
     document.body.removeChild(textarea);
   }
+}
+
+/**
+ * Handles an opponent using an item
+ * @param {Object} data - The item use data
+ */
+function handleItemUsed(data) {
+  // Update the opponent's HP
+  if (isHost) {
+    battleState.player2HP = data.newHP;
+  } else {
+    battleState.player1HP = data.newHP;
+  }
+
+  // Update UI
+  updateBattleUI();
+
+  // Log the use
+  addBattleLog(`Opponent used ${data.itemName}!`);
 }
 
 // Initialize the multiplayer when the page loads

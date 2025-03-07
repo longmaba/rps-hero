@@ -865,12 +865,27 @@ h1 {
 }
 
 .inventory-item {
-    cursor: help;
+    display: inline-block;
     padding: 2px 4px;
-    border-radius: 3px;
-    transition: background-color 0.2s;
-    font-weight: bold;
-    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+    margin: 0 2px;
+    border-radius: 4px;
+}
+
+.inventory-item.consumable {
+    cursor: pointer;
+    background-color: rgba(87, 60, 39, 0.2);
+    border: 1px dashed #573c27;
+    transition: all 0.2s ease;
+}
+
+.inventory-item.consumable:hover {
+    background-color: rgba(87, 60, 39, 0.4);
+    transform: translateY(-2px);
+}
+
+.inventory-item.consumable:active {
+    background-color: rgba(87, 60, 39, 0.6);
+    transform: translateY(0);
 }
 
 .inventory-item:hover {
