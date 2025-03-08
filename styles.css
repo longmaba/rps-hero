@@ -2374,3 +2374,124 @@ h1 {
         width: 60px;
     }
 }
+
+/* Existing styles... */
+
+/* Battle mode styles - for streamlined battle UI */
+#status.battle-mode {
+    display: flex;
+    justify-content: space-between;
+    background-color: rgba(52, 73, 94, 0.95);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+#status.battle-mode > div {
+    flex: 1;
+    margin: 0 10px;
+}
+
+#status.battle-mode #player-currency,
+#status.battle-mode #currency-container,
+#status.battle-mode #inventory-container,
+#status.battle-mode #round-number {
+    display: none !important;
+}
+
+#status.battle-mode p:not(:has(.hp-bar)) {
+    display: none;
+}
+
+#status.battle-mode .hp-bar {
+    height: 25px;
+    margin-bottom: 5px;
+    animation: pulseLight 2s infinite;
+}
+
+/* Hide action selection during battle-mode */
+#status.battle-mode ~ #battle-screen #actions button {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* Add focus styling to log during battle resolution */
+#status.battle-mode ~ #battle-screen #resolution-log {
+    border: 2px solid #e74c3c;
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+}
+
+/* This class will be used when returning from battle */
+.battle-end #game-modes,
+.battle-end #inventory-container,
+.battle-end #currency-container {
+    display: block;
+}
+
+/* Existing styles continue... */
+
+#status.battle-mode ~ #battle-screen #actions button {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* Hide battle log during combat resolution */
+#status.battle-mode ~ #battle-screen #resolution-log {
+    display: none;
+}
+
+/* Create space for a temporary visual that will show only the current comparison */
+#status.battle-mode ~ #battle-screen .active-comparison {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 15px 0;
+    min-height: 80px;
+    font-size: 1.5em;
+}
+
+#status.battle-mode ~ #battle-screen .active-comparison {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 15px 0;
+    min-height: 80px;
+    font-size: 1.5em;
+}
+
+.active-comparison .player-action,
+.active-comparison .enemy-action {
+    font-size: 3em;
+    margin: 0 20px;
+    animation: pulse 1s infinite;
+}
+
+.active-comparison .vs-text {
+    font-weight: bold;
+    color: #e74c3c;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.active-comparison.hidden {
+    display: none;
+}
+
+/* Create space for a temporary visual that will show only the current comparison */
+#status.battle-mode ~ #battle-screen .active-comparison {
+    display: none;
+}
+
+.active-comparison .player-action,
+.active-comparison .enemy-action {
+    display: none;
+}
+
+.active-comparison .vs-text {
+    display: none;
+}
+
+.active-comparison.hidden {
+    display: none;
+}

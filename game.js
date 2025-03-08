@@ -246,6 +246,19 @@ function resolveRound() {
   const playerActions = [...gameState.player.plannedActions];
   const enemyActions = [...gameState.enemy.actions];
 
+  // Enable battle mode for focused UI during resolution
+  const statusElement = document.getElementById("status");
+  if (statusElement) {
+    statusElement.classList.add("battle-mode");
+  }
+
+  // Show active comparison and hide battle log
+  const activeComparisonElement = document.getElementById("active-comparison");
+  if (activeComparisonElement) {
+    activeComparisonElement.classList.remove("hidden");
+    activeComparisonElement.innerHTML = "<p>Getting ready to fight...</p>";
+  }
+
   // Reset round info object to track critical hits
   gameState.roundInfo = {
     lastCriticalHit: null,
@@ -366,6 +379,17 @@ function resolveRound() {
     if (currentIndex < playerActions.length) {
       const playerAction = playerActions[currentIndex];
       const enemyAction = enemyActions[currentIndex];
+
+      // Update the active comparison display
+      const activeComparisonElement = document.getElementById("active-comparison");
+      if (activeComparisonElement) {
+        // Display the current comparison with animated emoji
+        activeComparisonElement.innerHTML = `
+          <div class="player-action">${getActionEmoji(playerAction)}</div>
+          <div class="vs-text">VS</div>
+          <div class="enemy-action">${getActionEmoji(enemyAction)}</div>
+        `;
+      }
 
       // Apply move confusion from debuffs if applicable
       let modifiedPlayerAction = playerAction;
@@ -696,6 +720,18 @@ function resolveRound() {
   compareNextAction();
 
   function finishRound() {
+    // Disable battle mode now that we're back to preparation phase
+    const statusElement = document.getElementById("status");
+    if (statusElement) {
+      statusElement.classList.remove("battle-mode");
+    }
+
+    // Hide active comparison element
+    const activeComparisonElement = document.getElementById("active-comparison");
+    if (activeComparisonElement) {
+      activeComparisonElement.classList.add("hidden");
+    }
+
     // Increment round counter
     gameState.currentRound++;
     document.getElementById("round-number").textContent = gameState.currentRound;
@@ -811,6 +847,18 @@ function resolveRound() {
       gameState.enemy.type.onBattleEnd();
     }
 
+    // Ensure battle mode is turned off
+    const statusElement = document.getElementById("status");
+    if (statusElement) {
+      statusElement.classList.remove("battle-mode");
+    }
+
+    // Hide active comparison element
+    const activeComparisonElement = document.getElementById("active-comparison");
+    if (activeComparisonElement) {
+      activeComparisonElement.classList.add("hidden");
+    }
+
     // Log defeat message
     const defeatMsg = document.createElement("p");
     defeatMsg.className = "defeat-message";
@@ -830,6 +878,18 @@ function resolveRound() {
     clearEnemyMovesWithAnimation();
     if (gameState.enemy.type.onBattleEnd) {
       gameState.enemy.type.onBattleEnd();
+    }
+
+    // Ensure battle mode is turned off
+    const statusElement = document.getElementById("status");
+    if (statusElement) {
+      statusElement.classList.remove("battle-mode");
+    }
+
+    // Hide active comparison element
+    const activeComparisonElement = document.getElementById("active-comparison");
+    if (activeComparisonElement) {
+      activeComparisonElement.classList.add("hidden");
     }
 
     // Log victory message
@@ -1816,21 +1876,17 @@ function processCurrentNode() {
     case "start":
       // Show battle screen
       document.getElementById("battle-screen").classList.remove("hidden");
+
       // Initialize battle
       initBattle(false);
-      // Update inventory to make Health Potions clickable
-      updateInventoryDisplay();
       break;
-
     case NODE_TYPES.ELITE.id:
       // Show battle screen
       document.getElementById("battle-screen").classList.remove("hidden");
+
       // Initialize elite battle
       initBattle(true);
-      // Update inventory to make Health Potions clickable
-      updateInventoryDisplay();
       break;
-
     case NODE_TYPES.SHOP.id:
       // Show shop screen
       showShop();
@@ -2907,5 +2963,19 @@ function generateRoast(gameState) {
 function ensureClickSounds() {
   if (window.audioController) {
     window.audioController.attachButtonSounds();
+  }
+}
+
+// Helper function to get emoji for an action
+function getActionEmoji(action) {
+  switch (action) {
+    case "Rock":
+      return "✊";
+    case "Paper":
+      return "✋";
+    case "Scissors":
+      return "✌️";
+    default:
+      return "❓";
   }
 }
