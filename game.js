@@ -999,6 +999,12 @@ function endGame(message) {
   gameOver.classList.remove("hidden");
   document.getElementById("game-over-message").textContent = message;
 
+  // Make sure the Start New Adventure button is visible
+  const newRunButton = document.querySelector("#game-over button");
+  if (newRunButton) {
+    newRunButton.style.display = "block";
+  }
+
   // Add a new element to display the final battle log in the game over screen
   const finalLogContainer = document.getElementById("final-battle-log") || document.createElement("div");
   if (!document.getElementById("final-battle-log")) {
@@ -1012,6 +1018,15 @@ function endGame(message) {
 
 // Start new run
 function startNewRun() {
+  // Hide the game over screen
+  document.getElementById("game-over").classList.add("hidden");
+
+  // Hide the Start New Adventure button (it will reappear when needed)
+  const newRunButton = document.querySelector("#game-over button");
+  if (newRunButton) {
+    newRunButton.style.display = "none";
+  }
+
   // Properly reset game state
   gameState = {
     player: {
@@ -1096,6 +1111,46 @@ function startNewRun() {
 
   // Show item selection instead of directly starting battle
   showItemSelection("start");
+
+  // Reset battle log
+  const resolutionLog = document.getElementById("resolution-log");
+  if (resolutionLog) {
+    resolutionLog.innerHTML = "";
+  }
+
+  // Clear player inventory display
+  document.getElementById("inventory").textContent = "None";
+
+  // Reset HP bars to full
+  updateHP("player", gameState.player.hp);
+  updateHP("enemy", 0); // Set enemy HP to 0 initially until a battle starts
+
+  // Reset enemy description and name
+  document.getElementById("enemy-name").textContent = "Enemy";
+  document.getElementById("enemy-description").textContent = "";
+
+  // Reset currency display
+  updateCurrencyDisplay();
+
+  // Clear enemy actions display
+  const enemyActionsContainer = document.getElementById("enemy-actions");
+  if (enemyActionsContainer) {
+    enemyActionsContainer.innerHTML = "";
+  }
+
+  // Clear debuff display
+  setupDebuffDisplay();
+
+  // Generate new map and start the adventure
+  generateMap();
+  updateMapDisplay();
+  showNodeSelection();
+
+  // On first run, show item selection for choosing a relic
+  if (!gameState.firstRunCompleted) {
+    showItemSelection("start");
+    gameState.firstRunCompleted = true;
+  }
 }
 
 // Helper function to update planned actions display
@@ -1181,9 +1236,9 @@ function updateUI() {
       let description = gameState.enemy.type.description;
 
       // Add elite ability if present
-      if (gameState.enemy.type.isElite && gameState.enemy.type.eliteAbility) {
-        description += `<br><br><strong>Elite Ability:</strong> ${gameState.enemy.type.eliteAbility}`;
-      }
+      // if (gameState.enemy.type.isElite && gameState.enemy.type.eliteAbility) {
+      //   description += `<br><br><strong>Elite Ability:</strong> ${gameState.enemy.type.eliteAbility}`;
+      // }
 
       enemyDescElem.innerHTML = description;
     } else {
@@ -1261,6 +1316,12 @@ function clearAllActions() {
 
 // Function to get random unique items from specified item pool
 function getRandomUniqueItems(count, itemPool) {
+  // Safeguard against non-iterable or empty itemPool
+  if (!itemPool || !Array.isArray(itemPool) || itemPool.length === 0) {
+    console.warn("getRandomUniqueItems: itemPool is not valid. Returning empty array.");
+    return [];
+  }
+
   const items = [...itemPool]; // Create a copy of the specified item array
   const result = [];
 
@@ -1332,7 +1393,72 @@ function showItemSelection(context) {
       document.getElementById("item-selection-heading").textContent = "Choose a Relic";
       document.getElementById("item-selection-message").textContent = "Select one relic to begin your adventure:";
       break;
+    case "treasure":
+      // Items from treasure chest - mix of relics and consumables
+      const availableRelics = RELICS.filter((relic) => !gameState.player.inventory.some((i) => i.name === relic.name));
+      const availableConsumables = ITEMS.filter(
+        (item) =>
+          item.type === "consumable" &&
+          (item.name !== "Health Potion" || gameState.player.inventory.filter((i) => i.name === "Health Potion").length < 3)
+      );
+
+      // Combine pools with a higher chance of relics
+      itemPool = [...availableRelics, ...availableConsumables];
+      itemsToShow = 3;
+
+      document.getElementById("item-selection-heading").textContent = "Treasure Chest";
+      document.getElementById("item-selection-message").textContent = "Select one item from the treasure chest:";
+      break;
     // ... other cases ...
+  }
+
+  // Ensure itemPool is an array and not empty
+  if (!itemPool || !Array.isArray(itemPool) || itemPool.length === 0) {
+    console.warn(`No valid items found for context: ${context}. Using fallback items.`);
+
+    // Create a set of fallback items based on the context
+    if (context === "treasure") {
+      // For treasure nodes, offer coins and healing
+      itemPool = [
+        {
+          name: "Lucky Coin",
+          description: "A shiny gold coin that brings good fortune. Gain 50 coins immediately.",
+          effect: (state) => {
+            state.player.currency += 50;
+            return "You gained 50 coins!";
+          },
+          type: "consumable",
+          rarity: "rare",
+        },
+        {
+          name: "Health Crystal",
+          description: "A glowing crystal that restores 30 HP when used.",
+          effect: (state) => {
+            const healAmount = Math.min(30, state.player.maxHp - state.player.hp);
+            state.player.hp += healAmount;
+            return `You healed for ${healAmount} HP!`;
+          },
+          type: "consumable",
+          rarity: "uncommon",
+        },
+      ];
+    } else {
+      // Default fallback for any other context
+      itemPool = [
+        {
+          name: "Mystery Box",
+          description: "A mysterious box. Who knows what's inside?",
+          effect: (state) => {
+            state.player.currency += 25;
+            return "You found 25 coins inside!";
+          },
+          type: "consumable",
+          rarity: "common",
+        },
+      ];
+    }
+
+    itemsToShow = Math.min(2, itemPool.length);
   }
 
   // Get random items from the pool
@@ -2621,15 +2747,8 @@ function updateEnemyDisplay() {
   // Update the enemy description
   const enemyDescriptionElem = document.getElementById("enemy-description");
   if (enemyDescriptionElem) {
-    // Check for elite ability
-    let description = gameState.enemy.type.description;
-
-    if (gameState.enemy.type.isElite) {
-      description += `<br><br><strong>Elite Ability:</strong> ${gameState.enemy.type.eliteAbility}`;
-    }
-
-    // Update the description directly
-    enemyDescriptionElem.innerHTML = description;
+    // Display only the base description without the elite ability text
+    enemyDescriptionElem.textContent = gameState.enemy.type.description;
     enemyDescriptionElem.className = "enemy-desc";
   }
 
