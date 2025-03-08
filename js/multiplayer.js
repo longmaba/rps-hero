@@ -439,6 +439,19 @@ function updateBattleUI() {
 
   // Update action buttons based on phase
   updateActionButtons();
+
+  // Ensure click sounds are attached to any newly created buttons
+  ensureClickSounds();
+}
+
+/**
+ * Ensures click sounds are attached to buttons
+ * Calls the audio handler's method if available
+ */
+function ensureClickSounds() {
+  if (window.audioController) {
+    window.audioController.attachButtonSounds();
+  }
 }
 
 /**
@@ -1198,10 +1211,10 @@ function clearBattleLog() {
  * Shows the item selection UI
  */
 function showItemSelection() {
-  // Set phase to item selection
-  battleState.phase = BATTLE_PHASE.ITEM_SELECTION;
+  // Reset any battle-related state
+  stopItemSelectionTimer();
 
-  // Generate random items (3 for each player)
+  // Create 3 random items for each player
   const player1Items = SharedBattle.getRandomItems(3, MULTIPLAYER_ITEMS);
   const player2Items = SharedBattle.getRandomItems(3, MULTIPLAYER_ITEMS);
 
@@ -1239,27 +1252,24 @@ function showItemSelection() {
     elements.itemOptions.appendChild(itemDiv);
   });
 
+  // Ensure click sounds are attached to the newly created item options
+  ensureClickSounds();
+
   // Start timer
   itemTimeRemaining = 10;
   itemSelectionTimer = setInterval(() => {
     itemTimeRemaining--;
     elements.itemTimer.textContent = itemTimeRemaining;
 
-    // When timer reaches 0, select random item
     if (itemTimeRemaining <= 0) {
-      clearInterval(itemSelectionTimer);
+      stopItemSelectionTimer();
 
-      // Check if itemSelection still exists
-      if (!battleState || !battleState.itemSelection) {
-        console.error("Item selection state is null or undefined");
-        return;
-      }
-
-      // Select random item if none selected
-      const needsRandomSelection = (isHost && !battleState.itemSelection.player1Selected) || (!isHost && !battleState.itemSelection.player2Selected);
-
-      if (needsRandomSelection) {
-        const randomItem = playerItems[Math.floor(Math.random() * playerItems.length)];
+      // Auto-select a random item if user hasn't chosen one
+      if (isHost && !battleState.itemSelection.player1Selected) {
+        const randomItem = battleState.itemSelection.player1Options[Math.floor(Math.random() * 3)];
+        selectItem(randomItem);
+      } else if (!isHost && !battleState.itemSelection.player2Selected) {
+        const randomItem = battleState.itemSelection.player2Options[Math.floor(Math.random() * 3)];
         selectItem(randomItem);
       }
     }

@@ -1099,41 +1099,55 @@ function updateUI() {
     gameContainer.classList.add("elite-battle");
   }
 
-  // Add battle-start class to trigger animations
-  document.getElementById("enemy-hp-bar").classList.add("battle-start");
-  // Remove class after animation completes
-  setTimeout(() => {
-    document.getElementById("enemy-hp-bar").classList.remove("battle-start");
-  }, 2000);
+  // Animate the enemy HP bar on battle start to draw attention
+  if (gameState.battleJustStarted) {
+    document.getElementById("enemy-hp-bar").classList.add("battle-start");
+    setTimeout(() => {
+      document.getElementById("enemy-hp-bar").classList.remove("battle-start");
+    }, 1000);
+    gameState.battleJustStarted = false;
+  }
 
-  // Update the enemy name and description
+  // Update enemy name and description
   const enemyNameElem = document.getElementById("enemy-name");
   const enemyDescElem = document.getElementById("enemy-description");
+  if (enemyNameElem) {
+    // Ensure we're using the correct property (enemy.type.type or enemy.name)
+    enemyNameElem.textContent = gameState.enemy.type ? gameState.enemy.type.type : gameState.enemy.name || "Enemy";
+  }
+  if (enemyDescElem) {
+    // Use the correct enemy description with HTML support for elite abilities
+    if (gameState.enemy.type) {
+      let description = gameState.enemy.type.description;
 
-  enemyNameElem.textContent = `${gameState.enemy.type.type} Enemy`;
-  enemyDescElem.textContent = gameState.enemy.type.description;
+      // Add elite ability if present
+      if (gameState.enemy.type.isElite && gameState.enemy.type.eliteAbility) {
+        description += `<br><br><strong>Elite Ability:</strong> ${gameState.enemy.type.eliteAbility}`;
+      }
+
+      enemyDescElem.innerHTML = description;
+    } else {
+      enemyDescElem.textContent = gameState.enemy.description || "";
+    }
+  }
 
   // Update the enemy actions container
   const enemyActionsContainer = document.getElementById("enemy-actions");
-  enemyActionsContainer.innerHTML = ""; // Clear existing actions
-
-  // Add hidden actions for enemy
-  for (let i = 0; i < 5; i++) {
-    const actionDiv = document.createElement("div");
-    actionDiv.className = "hidden-action";
-    actionDiv.textContent = "?";
-    actionDiv.dataset.index = i;
-    enemyActionsContainer.appendChild(actionDiv);
+  if (enemyActionsContainer) {
+    updateEnemyActionsDisplay();
   }
-
-  // Update planned actions display
-  updatePlannedActionsDisplay();
 
   // Update inventory display
   updateInventoryDisplay();
 
-  // Set up debuff display
+  // Update planned actions
+  updatePlannedActionsDisplay();
+
+  // Update debuff display
   setupDebuffDisplay();
+
+  // Ensure click sounds are attached to any newly created buttons
+  ensureClickSounds();
 }
 
 // Function to add player action
@@ -1231,83 +1245,76 @@ function awardCoins(isEliteBattle) {
 
 // Function to show item selection screen
 function showItemSelection(context) {
-  // Set the context (start = new game, victory = after winning a battle)
-  gameState.itemSelectionContext = context;
-
-  // Hide battle screen and game over screens
-  document.getElementById("battle-screen").classList.add("hidden");
-  document.getElementById("game-over").classList.add("hidden");
-
-  // Show item selection screen
-  const itemSelection = document.getElementById("item-selection");
-  itemSelection.classList.remove("hidden");
-
-  // Remove special event attribute if it exists
-  itemSelection.removeAttribute("data-event");
-
-  // Determine which pool to use and set appropriate heading
-  let itemPool = ITEMS;
-  let heading = "";
-  let description = "";
-  if (context === "start") {
-    // At the start, player selects a relic
-    itemPool = RELICS;
-    heading = "Choose Your Starting Relic";
-    description = "Select one powerful relic to begin your adventure:";
-  } else if (context === "victory") {
-    // After normal battles, player selects a normal item
-    itemPool = ITEMS;
-    heading = "Choose Your Reward";
-    description = "Select one item as your battle reward:";
-  } else if (context === "treasure") {
-    // After finding a treasure chest, player selects an item
-    itemPool = ITEMS;
-    heading = "Choose Your Treasure";
-    description = "Select one item from the treasure chest:";
-  }
-
-  // Update heading and description
-  document.getElementById("item-selection-heading").textContent = heading;
-  document.getElementById("item-selection-message").textContent = description;
-
-  // Filter items to only show those that apply to Rock/Paper/Scissors
-  // const validItems = ITEMS.filter((item) => !item.appliesTo || ["Rock", "Paper", "Scissors"].includes(item.appliesTo));
-
-  // Get 3 random unique items from the filtered list
-  const items = getRandomUniqueItems(3, itemPool);
-
-  // Display items
+  // Clear any previous item selection stuff
   const itemOptionsContainer = document.getElementById("item-options");
   itemOptionsContainer.innerHTML = "";
 
+  const itemSelection = document.getElementById("item-selection");
+  itemSelection.classList.remove("hidden");
+  itemSelection.dataset.context = context;
+
+  document.getElementById("battle-screen").classList.add("hidden");
+  document.getElementById("run-map").classList.add("hidden");
+
+  // Set default heading and message
+  document.getElementById("item-selection-heading").textContent = "Choose an Item";
+  document.getElementById("item-selection-message").textContent = "Select one item to add to your inventory:";
+
+  // Different contexts have different item pools and messages
+  let itemPool;
+  let itemsToShow = 3;
+
+  switch (context) {
+    case "start":
+      // Start with choosing a relic
+      itemPool = RELICS.filter((relic) => !gameState.player.inventory.some((i) => i.name === relic.name));
+      itemsToShow = 3;
+      document.getElementById("item-selection-heading").textContent = "Choose a Relic";
+      document.getElementById("item-selection-message").textContent = "Select one relic to begin your adventure:";
+      break;
+    // ... other cases ...
+  }
+
+  // Get random items from the pool
+  const items = getRandomUniqueItems(itemsToShow, itemPool);
+
+  // Create item elements
   items.forEach((item) => {
     const itemElement = document.createElement("div");
     itemElement.className = "item-option";
-    if (context === "start") {
-      itemElement.classList.add("relic"); // Add relic class for styling
+    itemElement.className += item.rarity ? ` ${item.rarity}` : " common";
+
+    // For relics, add special styling
+    if (item.type === "relic") {
+      itemElement.className += " relic";
     }
+
+    const itemName = document.createElement("h3");
+    itemName.textContent = item.name;
+
+    const itemEffects = document.createElement("p");
+
+    if (item.description) {
+      itemEffects.textContent = item.description;
+    }
+
+    itemElement.appendChild(itemName);
+    itemElement.appendChild(itemEffects);
+
+    if (item.appliesTo) {
+      const appliesTo = document.createElement("div");
+      appliesTo.textContent = `Applies to: ${item.appliesTo}`;
+      appliesTo.className = "item-applies-to";
+      appliesTo.dataset.appliesTo = item.appliesTo;
+      itemElement.appendChild(appliesTo);
+    }
+
     itemElement.onclick = () => selectItem(item);
-
-    const nameElement = document.createElement("h3");
-    nameElement.textContent = item.name;
-    itemElement.appendChild(nameElement);
-
-    const descElement = document.createElement("p");
-    descElement.textContent = item.description;
-    itemElement.appendChild(descElement);
-
-    // Only add the "Affects:" element for items that have an appliesTo property
-    // and are not utility, defensive, or scaling types that affect all moves
-    if (item.appliesTo && !["utility", "defensive", "scaling"].includes(item.type)) {
-      const appliesToElement = document.createElement("div");
-      appliesToElement.className = "item-applies-to";
-      appliesToElement.setAttribute("data-applies-to", item.appliesTo);
-      appliesToElement.textContent = `Affects: ${item.appliesTo}`;
-      itemElement.appendChild(appliesToElement);
-    }
-
     itemOptionsContainer.appendChild(itemElement);
   });
+
+  // Ensure click sounds are attached to the newly created items
+  ensureClickSounds();
 }
 
 // Function to handle item selection
@@ -1736,6 +1743,9 @@ function updateMapDisplay() {
       nodeOptionsContainer.appendChild(nodeOption);
     });
   }
+
+  // Ensure click sounds are attached to the map nodes
+  ensureClickSounds();
 }
 
 // Show node selection screen
@@ -2891,4 +2901,11 @@ function generateRoast(gameState) {
   }
 
   return roast;
+}
+
+// After elements are added to DOM, ensure click sounds are attached
+function ensureClickSounds() {
+  if (window.audioController) {
+    window.audioController.attachButtonSounds();
+  }
 }

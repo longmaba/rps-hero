@@ -2300,3 +2300,77 @@ h1 {
   90% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* Audio Controls */
+.audio-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.audio-btn {
+    background: var(--btn-bg-color, #50342c);
+    color: var(--btn-text-color, #f0f0e0);
+    border: 2px solid var(--btn-border-color, #352318);
+    font-size: 1.2rem;
+    padding: 5px 10px;
+    margin: 0 5px;
+    cursor: pointer;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.audio-btn:hover {
+    background: var(--btn-hover-color, #6a453b);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.audio-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Volume slider when needed */
+.volume-slider {
+    width: 80px;
+    margin: 0 10px;
+    -webkit-appearance: none;
+    height: 5px;
+    border-radius: 5px;
+    background: var(--slider-bg-color, #352318);
+    outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--slider-thumb-color, #f0f0e0);
+    cursor: pointer;
+    border: 2px solid var(--btn-border-color, #352318);
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--slider-thumb-color, #f0f0e0);
+    cursor: pointer;
+    border: 2px solid var(--btn-border-color, #352318);
+}
+
+@media (max-width: 768px) {
+    .audio-btn {
+        font-size: 1rem;
+        padding: 4px 8px;
+    }
+    
+    .volume-slider {
+        width: 60px;
+    }
+}

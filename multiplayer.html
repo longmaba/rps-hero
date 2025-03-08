@@ -18,6 +18,13 @@
 </head>
 
 <body>
+    <!-- Background Music Audio Element (hidden) -->
+    <audio id="background-music" loop>
+        <source src="assets/music/bgm_2.ogg" type="audio/ogg">
+        <source src="assets/music/bgm_2.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
     <div id="game-container">
         <h1>🎮 RPS Roguelike Multiplayer 🎮</h1>
 
@@ -44,8 +51,9 @@
                 <p>Status: <span id="status-message">Disconnected</span></p>
             </div>
 
-            <div id="back-to-main">
+            <div id="navigation-buttons">
                 <a href="index.html" class="game-button">Back to Main Game</a>
+                <button id="toggle-music" class="game-button">🔊 Music</button>
             </div>
         </div>
 
@@ -134,6 +142,7 @@
     <script src="js/shared-battle.js"></script>
     <script src="js/peer-connection.js"></script>
     <script src="js/multiplayer.js"></script>
+    <script src="js/audio-handler.js"></script>
 </body>
 
 </html>
