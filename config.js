@@ -401,19 +401,28 @@ const ENEMY_TYPES = [
     baseDamage: 10,
     roastInterval: null, // Will store our interval ID
     onBattleStart: function (gameState) {
-      // Start roasting every 5 seconds
+      // Generate a roast immediately
+      setTimeout(() => {
+        // Use a global function to handle Roaster's roasts
+        if (window.handleRoasterInsult) {
+          window.handleRoasterInsult(gameState);
+        }
+      }, 1000);
+
+      // Start roasting every 8 seconds
       this.roastInterval = setInterval(() => {
-        const roast = generateRoast(gameState);
-        const log = document.getElementById("resolution-log");
-        const roastElem = document.createElement("p");
-        roastElem.className = "enemy-roast";
-        roastElem.innerHTML = `🔥 Roaster: "${roast}"`;
-        log.appendChild(roastElem);
-        log.scrollTop = log.scrollHeight;
-      }, 7000);
+        // Use a global function to handle Roaster's roasts
+        if (window.handleRoasterInsult) {
+          window.handleRoasterInsult(gameState);
+        }
+      }, 8000);
     },
     onBattleEnd: function () {
-      clearInterval(this.roastInterval);
+      // Clear the roast interval
+      if (this.roastInterval) {
+        clearInterval(this.roastInterval);
+        this.roastInterval = null;
+      }
     },
   },
 ];
@@ -689,22 +698,6 @@ const DEBUFFS = [
       // Multiply enemy HP by 2.5
       gameState.enemy.maxHp = Math.floor(gameState.enemy.maxHp * 2.5);
       gameState.enemy.hp = gameState.enemy.maxHp;
-    },
-    roundEffect: () => {
-      // No per-round effect
-    },
-  },
-  {
-    id: "hand_tied",
-    name: "Hand Tied",
-    description: "You can only use Paper for this battle",
-    icon: "🔒✋",
-    effect: {
-      type: "only_allow_action",
-      action: "Paper",
-    },
-    applyEffect: (gameState) => {
-      // Nothing to do here - effect is applied in the UI/controls
     },
     roundEffect: () => {
       // No per-round effect

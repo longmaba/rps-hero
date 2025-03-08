@@ -3069,12 +3069,7 @@ function generateRoast(gameState) {
   let roast = availableRoasts[Math.floor(Math.random() * availableRoasts.length)];
   gameState.usedRoasts.push(roast);
 
-  // 30% chance to apply emotional damage debuff
-  if (Math.random() < 0.3) {
-    if (!gameState.playerDebuffs) gameState.playerDebuffs = [];
-    gameState.playerDebuffs.push(DEBUFFS.find((d) => d.id === "emotional_damage"));
-  }
-
+  // Just return the roast text - the caller will decide how to display it
   return roast;
 }
 
@@ -3098,3 +3093,82 @@ function getActionEmoji(action) {
       return "❓";
   }
 }
+
+// Toast notification system
+function showToast(message, type = "info", title = "", duration = 5000) {
+  const toastContainer = document.getElementById("toast-container");
+
+  // Create toast element
+  const toast = document.createElement("div");
+  toast.className = `toast-notification ${type}`;
+
+  // Create toast content
+  let icon = "";
+  switch (type) {
+    case "success":
+      icon = "✅";
+      break;
+    case "error":
+      icon = "❌";
+      break;
+    case "roast":
+      icon = "🔥";
+      break;
+    default:
+      icon = "ℹ️";
+  }
+
+  let toastContent = "";
+  if (title) {
+    toastContent += `<div class="toast-title"><span class="toast-icon">${icon}</span>${title}</div>`;
+  }
+  toastContent += `<p class="toast-message">${message}</p>`;
+  toastContent += `<span class="toast-close" onclick="this.parentElement.remove()">✖</span>`;
+  toastContent += `<div class="toast-progress"><div class="toast-progress-bar"></div></div>`;
+
+  toast.innerHTML = toastContent;
+
+  // Add to container
+  toastContainer.appendChild(toast);
+
+  // Show with animation
+  setTimeout(() => {
+    toast.classList.add("show");
+  }, 10);
+
+  // Remove after duration
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.classList.remove("show");
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.remove();
+        }
+      }, 300);
+    }
+  }, duration);
+
+  return toast;
+}
+
+// Function to show a roast as a toast notification
+function showRoastToast(roastMessage) {
+  return showToast(roastMessage, "roast", "💔 Emotional Damage!", 8000);
+}
+
+// Global function to handle Roaster insults
+window.handleRoasterInsult = function (gameState) {
+  // Generate a roast
+  const roast = generateRoast(gameState);
+
+  // Show as toast notification with Roaster prefix
+  showToast(`${roast}`, "roast", "Emotional Damage!", 8000);
+
+  // Don't add to battle log to keep it cleaner
+
+  // Add debuff with a chance if not already applied
+  if (Math.random() < 0.3 && (!gameState.playerDebuffs || !gameState.playerDebuffs.some((d) => d.id === "emotional_damage"))) {
+    if (!gameState.playerDebuffs) gameState.playerDebuffs = [];
+    gameState.playerDebuffs.push(DEBUFFS.find((d) => d.id === "emotional_damage"));
+  }
+};
